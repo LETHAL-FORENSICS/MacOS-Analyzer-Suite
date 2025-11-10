@@ -29,9 +29,7 @@ A collection of PowerShell scripts for analyzing macOS Forensic Artifacts
 4. Run the specific script in PowerShell (e.g. TCC-Analyzer.ps1). 
 
 ## Usage  
-Open PowerShell and navigate to the directory containing TCC-Analyzer.ps1 and run the script with following command:  
-
-`.\TCC-Analyzer.ps1`
+Open PowerShell and navigate to the directory containing e.g. TCC-Analyzer.ps1 and run the script with following command: `.\TCC-Analyzer.ps1`
 
 ![File-Browser](https://github.com/user-attachments/assets/0718a242-cae2-4236-b3d4-fd25e31fb8f5)  
 **Fig 1:** Select your TCC Database file     
