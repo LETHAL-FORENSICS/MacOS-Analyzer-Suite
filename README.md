@@ -39,7 +39,7 @@ You can skip the file selection dialog and provide the file path to your log fil
 `.\TCC-Analyzer.ps1 -Path "$env:USERPROFILE\Desktop\tcc_<USERNAME>"`  
 
 You can specify the output directory with following command (Default is "$env:USERPROFILE\Desktop\TCC-Analyzer"):   
-`.\TCC-Analyzer.ps1 -Path "H:\macos-collector\Aftermath_Collection\tcc_<USERNAME>" -OutputDir "H:\MacOS-Analyzer-Suite"`  
+`.\TCC-Analyzer.ps1 -Path "H:\macos-collector\tcc_<USERNAME>" -OutputDir "H:\MacOS-Analyzer-Suite"`  
 
 > [!NOTE]
 > The subdirectory 'TCC-Analyzer' is automatically created.  
