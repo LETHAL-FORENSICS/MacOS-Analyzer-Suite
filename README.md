@@ -42,7 +42,7 @@ You can specify the output directory with following command:
 `.\TCC-Analyzer.ps1 -Path "H:\macos-collector\tcc_<USERNAME>" -OutputDir "H:\MacOS-Analyzer-Suite"`  
 
 > [!NOTE]
-> Default is `$env:USERPROFILE\Desktop\TCC-Analyzer`  
+> Default output directory is `$env:USERPROFILE\Desktop\TCC-Analyzer`  
 > The subdirectory 'TCC-Analyzer' is automatically created.  
 
 ## License
