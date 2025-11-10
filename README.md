@@ -19,7 +19,7 @@ A collection of PowerShell scripts for analyzing macOS Forensic Artifacts
 1. Windows PowerShell 5.1 or newer.  
 
 ## Setup  
-1. Download the latest version of the <b>MacOS-Analyzer-Suite</b> from the Releases section.
+1. Download the latest version of the **MacOS-Analyzer-Suite** from the [Releases](https://github.com/LETHAL-FORENSICS/MacOS-Analyzer-Suite/releases/latest) section.
 2. Install [ImportExcel](https://github.com/dfinke/ImportExcel) PowerShell module to import/export Excel spreadsheets, without Excel.  
 
    ```powershell
