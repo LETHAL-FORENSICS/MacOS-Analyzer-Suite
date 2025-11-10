@@ -38,10 +38,11 @@ Open PowerShell and navigate to the directory containing e.g. TCC-Analyzer.ps1 a
 You can skip the file selection dialog and provide the file path to your log file with following command:  
 `.\TCC-Analyzer.ps1 -Path "$env:USERPROFILE\Desktop\tcc_<USERNAME>"`  
 
-You can specify the output directory with following command (Default is "$env:USERPROFILE\Desktop\TCC-Analyzer"):   
+You can specify the output directory with following command:   
 `.\TCC-Analyzer.ps1 -Path "H:\macos-collector\tcc_<USERNAME>" -OutputDir "H:\MacOS-Analyzer-Suite"`  
 
 > [!NOTE]
+> Default is `$env:USERPROFILE\Desktop\TCC-Analyzer`  
 > The subdirectory 'TCC-Analyzer' is automatically created.  
 
 ## License
