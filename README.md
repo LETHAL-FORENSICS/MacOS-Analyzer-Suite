@@ -25,10 +25,11 @@ A collection of PowerShell scripts for analyzing macOS Forensic Artifacts
    ```powershell
    Install-Module -Name ImportExcel
    ```  
-3. Run the specific script in PowerShell (e.g. TCC-Analyzer.ps1). 
+3. Install [Python 3](https://www.python.org/downloads/windows/) and add it to your PATH environment variable.
+4. Run the specific script in PowerShell (e.g. TCC-Analyzer.ps1). 
 
 ## Usage  
-Open PowerShell and navigate to the directory containing e.g. TCC-Analyzer.ps1 and run the script with following command:  
+Open PowerShell and navigate to the directory containing TCC-Analyzer.ps1 and run the script with following command:  
 
 `.\TCC-Analyzer.ps1`
 
