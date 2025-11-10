@@ -27,6 +27,7 @@ A collection of PowerShell scripts for analyzing macOS Forensic Artifacts
    ```  
 3. Install [Python 3](https://www.python.org/downloads/windows/) and add it to your PATH environment variable.
 4. Run the specific script in PowerShell (e.g. TCC-Analyzer.ps1). 
+5. Optional: Edit `Config.json` to choose your own Excel color scheme. 
 
 ## Usage  
 Open PowerShell and navigate to the directory containing e.g. TCC-Analyzer.ps1 and run the script with following command: `.\TCC-Analyzer.ps1`
