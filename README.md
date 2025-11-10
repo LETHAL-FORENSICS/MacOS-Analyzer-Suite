@@ -45,6 +45,23 @@ You can specify the output directory with following command:
 > Default output directory is `$env:USERPROFILE\Desktop\TCC-Analyzer`  
 > The subdirectory 'TCC-Analyzer' is automatically created.  
 
+<br>
+
+![FSEvents-Analyzer](https://github.com/user-attachments/assets/5b6446f4-9814-464c-bcd9-44e7869b498b)  
+**Fig 1:** FSEvents-Analyzer  
+
+![MessageBox](https://github.com/user-attachments/assets/e425e413-90ca-452d-af15-cc68922e7157)  
+**Fig 2:** MessageBox  
+
+![Quarantine-Analyzer](https://github.com/user-attachments/assets/73b68c19-87be-4f1e-9ca6-45fb939c484f)  
+**Fig 3:** Quarantine-Analyzer  
+
+![TCC-Analyzer](https://github.com/user-attachments/assets/142b76a0-d46c-40b3-8d29-574f7f8e3bb8)  
+**Fig 4:** TCC-Analyzer  
+
+![XProtect-Analyzer](https://github.com/user-attachments/assets/3a9cccb9-20cc-4f10-8b90-ca04034a331a)  
+**Fig 5:** XProtect-Analyzer  
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.  
 
