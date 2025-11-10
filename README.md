@@ -62,6 +62,12 @@ You can specify the output directory with following command:
 ![XProtect-Analyzer](https://github.com/user-attachments/assets/3a9cccb9-20cc-4f10-8b90-ca04034a331a)  
 **Fig 5:** XProtect-Analyzer  
 
+![XProtect-BehaviorService](https://github.com/user-attachments/assets/1aa06ba6-1385-48be-8eae-4160becde5af)  
+**Fig 6:** XProtect Behavior Service  
+
+![Bastion-Rules](https://github.com/user-attachments/assets/a5664093-eda5-4dea-bea3-e2dee857e8ac)  
+**Fig 7:** Bastion-Rules.xlsx (Stats)  
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.  
 
