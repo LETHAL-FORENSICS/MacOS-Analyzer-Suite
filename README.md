@@ -5,12 +5,14 @@ A collection of PowerShell scripts for analyzing macOS Forensic Artifacts
 
 ## The following MacOS Forensic Artifacts are supported yet:
 
-  * Aftermath Storyline &#8594; Storyline-Analyzer (WIP)
-  * .DS_Store file(s) &#8594; DSStore-Analyzer (WIP)  
-  * FSEvent Logs &#8594; FSEvents-Analyzer  
-  * LSQuarantine database file(s) &#8594; Quarantine-Analyzer  
-  * TCC database file(s) &#8594; TCC-Analyzer  
-  * XProtect Behavioral Service database file(s) &#8594; XProtect-Analyzer  
+  * Aftermath Storyline &#8594; Storyline-Analyzer
+  * Aftermath File Timeline &#8594; Timeline-Analyzer
+  * BTM dump file(s) &#8594; BTM-Analyzer
+  * .DS_Store file(s) &#8594; DSStore-Analyzer
+  * FSEvent Logs &#8594; FSEvents-Analyzer
+  * LSQuarantine database file(s) &#8594; Quarantine-Analyzer
+  * TCC database file(s) &#8594; TCC-Analyzer
+  * XProtect Behavioral Service database file(s) &#8594; XProtect-Analyzer
 
 <br>
 
@@ -73,8 +75,12 @@ You can specify the output directory with following command:
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.  
 
+## Feedback  
+Feel free to send comments and feedback to [github@lethal-forensics.com](mailto:github@lethal-forensics.com) or open an [issue](https://github.com/LETHAL-FORENSICS/MacOS-Analyzer-Suite/issues).
+
 ## Links  
 [Aftermath by Jamf Threat Labs](https://github.com/jamf/aftermath)  
 [macos-collector by LETHAL-FORENSICS](https://github.com/LETHAL-FORENSICS/macos-collector)  
+[DB Browser for SQLite](https://sqlitebrowser.org/dl/)  
 [Arsenal Image Mounter (AIM)](https://arsenalrecon.com/products/arsenal-image-mounter)  
 [APFS for Windows by Paragon Software](https://www.paragon-software.com/home/apfs-windows/)  

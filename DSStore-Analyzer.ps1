@@ -1,4 +1,4 @@
-﻿# XProtect-Analyzer v0.1
+﻿# DSStore-Analyzer v0.1
 #
 # @author:    Martin Willing
 # @copyright: Copyright (c) 2025 Martin Willing. All rights reserved. Licensed under the MIT license.
@@ -17,16 +17,22 @@
 #
 # Dependencies:
 #
+# DSStoreParser v0.2.1 (2019-07-25)
+# https://github.com/nicoleibrahim/DSStoreParser
+#
 # ImportExcel v7.8.10 (2024-10-21)
 # https://github.com/dfinke/ImportExcel
 #
 # SQLite Tools for Windows v3.50.4 (2025-07-30)
 # https://sqlite.org/download.html --> Command-line tools for Windows x64 --> sqlite-tools-win-x64-3500400.zip
 #
+# xsv v0.13.0 (2018-05-12)
+# https://github.com/BurntSushi/xsv
+#
 #
 # Changelog:
 # Version 0.1
-# Release Date: 2025-11-10
+# Release Date: 2025-11-20
 # Initial Release
 #
 #
@@ -39,27 +45,27 @@
 
 <#
 .SYNOPSIS
-  XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR
+  DSStore-Analyzer v0.1 - Automated Forensic Analysis of DS_Store Files for DFIR
 
 .DESCRIPTION
-  XProtect-Analyzer.ps1 is a PowerShell script utilized to simplify the analysis of the macOS XPdb.db.
+  DSStore-Analyzer.ps1 is a PowerShell script utilized to simplify the analysis of Desktop Service Store Files (.DS_Store).
 
 .PARAMETER OutputDir
-  Specifies the output directory. Default is "$env:USERPROFILE\Desktop\XProtect-Analyzer".
+  Specifies the output directory. Default is "$env:USERPROFILE\Desktop\DSStore-Analyzer".
 
-  Note: The subdirectory 'XProtect-Analyzer' is automatically created.
+  Note: The subdirectory 'DSStore-Analyzer' is automatically created.
 
 .PARAMETER Path
-  Specifies the path to the input file (XPdb).
+  Specifies the path to the input directory.
 
 .EXAMPLE
-  PS> .\XProtect-Analyzer.ps1
+  PS> .\DSStore-Analyzer.ps1
 
 .EXAMPLE
-  PS> .\XProtect-Analyzer.ps1 -Path "$env:USERPROFILE\Desktop\XPdb"
+  PS> .\DSStore-Analyzer.ps1 -InputDir "$env:USERPROFILE\Desktop\DSStore_Data"
 
 .EXAMPLE
-  PS> .\XProtect-Analyzer.ps1 -Path "H:\macos-collector\Aftermath_Collection\XPdb" -OutputDir "H:\MacOS-Analyzer-Suite"
+  PS> .\FSEvents-Analyzer.ps1 -InputDir "H:\MacOS-Analyzer-Suite\DSStore_Data" -OutputDir "H:\MacOS-Analyzer-Suite"
 
 .NOTES
   Author - Martin Willing
@@ -75,7 +81,7 @@
 
 [CmdletBinding()]
 Param(
-    [String]$Path,
+    [String]$InputDir,
     [String]$OutputDir
 )
 
@@ -119,7 +125,7 @@ $script:Orange = [System.Drawing.Color]::FromArgb(255,192,0) # Orange
 # Output Directory
 if (!($OutputDir))
 {
-    $script:OUTPUT_FOLDER = "$env:USERPROFILE\Desktop\XProtect-Analyzer" # Default
+    $script:OUTPUT_FOLDER = "$env:USERPROFILE\Desktop\DSStore-Analyzer" # Default
 }
 else
 {
@@ -130,14 +136,20 @@ else
     }
     else
     {
-        $script:OUTPUT_FOLDER = "$OutputDir\XProtect-Analyzer" # Custom
+        $script:OUTPUT_FOLDER = "$OutputDir\DSStore-Analyzer" # Custom
     }
 }
 
 # Tools
 
+# DSStoreParser by Nicole Ibrahim
+$script:DSStoreParser = "$SCRIPT_DIR\Tools\DSStoreParser\DSStoreParser.exe"
+
 # SQLite3
 $script:SQLite3 = "$SCRIPT_DIR\Tools\SQLite\sqlite3.exe"
+
+# xsv
+$script:xsv = "$SCRIPT_DIR\Tools\xsv\xsv.exe"
 
 # Configuration File (JSON)
 if(!(Test-Path "$PSScriptRoot\Config.json"))
@@ -171,9 +183,11 @@ else
 
 #region Header
 
+Function Header {
+
 # Windows Title
 $DefaultWindowsTitle = $Host.UI.RawUI.WindowTitle
-$Host.UI.RawUI.WindowTitle = "XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
+$Host.UI.RawUI.WindowTitle = "FSEvents-Analyzer v0.1 - Automated Forensic Analysis of DS_Store Files for DFIR"
 
 # Check if the PowerShell script is being run with admin rights
 if (!([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
@@ -190,6 +204,24 @@ if (!(Get-Module -ListAvailable -Name ImportExcel))
     Exit
 }
 
+# Check if sqlite3.exe exists
+if (!(Test-Path "$($SQLite3)"))
+{
+    Write-Host "[Error] sqlite3.exe NOT found." -ForegroundColor Red
+    Stop-Transcript
+    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+    Exit
+}
+
+# Check if xsv.exe exists
+if (!(Test-Path "$($xsv)"))
+{
+    Write-Host "[Error] xsv.exe NOT found." -ForegroundColor Red
+    Stop-Transcript
+    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+    Exit
+}
+
 # Flush Output Directory
 if (Test-Path "$OUTPUT_FOLDER")
 {
@@ -202,7 +234,7 @@ else
 }
 
 # Function Get-FileSize
-Function Get-FileSize()
+Function script:Get-FileSize
 {
     Param ([long]$Length)
     If ($Length -gt 1TB) {[string]::Format("{0:0.00} TB", $Length / 1TB)}
@@ -213,132 +245,47 @@ Function Get-FileSize()
     Else {""}
 }
 
-Function Test-Csv {
+# Add the required MessageBox class (Windows PowerShell)
+Add-Type -AssemblyName System.Windows.Forms
 
-<#
-.SYNOPSIS
-  Test-Csv - Fast Check if CSV is NOT empty
-
-.DESCRIPTION
-  The Test-Csv cmdlet checks if the rows of your CSV file are NOT empty.
-
-.PARAMETER Path
-  Specifies the path to the CSV file.
-
-.PARAMETER MaxLines
-  Specifies the maximum of lines to read from CSV file.
-
-.PARAMETER NoHeader (Optional)
-  If this switch is specified, function will NOT skip first line of the file. 
-
-.EXAMPLE
-  Test-Csv -Path <CSV> -MaxLines 2
-
-.EXAMPLE
-  Test-Csv -Path <CSV> -MaxLines 1 -NoHeader
-
-.NOTES
-  Author - Martin Willing
-
-.LINK
-  https://lethal-forensics.com/
-#>
-
-Param
-(
-    [Parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
-    [string]$Path,
-
-    [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
-    [ValidateRange(1, [int]::MaxValue)]
-    [int]$MaxLines,
-
-    [Parameter(ValueFromPipelineByPropertyName = $true)]
-    [switch]$NoHeader
-)
-
-Begin
+# Select folder containing .DS_Store Files
+if(!($InputDir))
 {
-    $Quotes    = '"'
-    $Delimiter = ','
-    $Regex     = "$Delimiter(?=(?:[^$Quotes]|$Quotes[^$Quotes]*$Quotes)*$)"
-}
-
-Process
-{
-    $Reader = New-Object -TypeName System.IO.StreamReader -ArgumentList $Path -ErrorAction Stop
-
-    $CsvRawLinesCount  = 0
-    $CsvDataLinesCount = 0
-
-    while($null -ne ($Line = $Reader.ReadLine()))
+    Function Get-FolderPath($InitialDirectory)
     {
-        $CsvRawLinesCount++
-
-        if(!$NoHeader -and ($CsvRawLinesCount -eq 1))
-        {
-            continue
-        }
-
-        if($CsvRawLinesCount -gt $MaxLines)
-        {
-            break
-        }
-
-        if($Line -match $Regex)
-        {
-            $CsvDataLinesCount++
-        }
+        [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
+        $script:OpenFolderDialog = New-Object System.Windows.Forms.FolderBrowserDialog
+        $OpenFolderDialog.Description = 'Select a folder containing DS_Store File(s)'
+        $OpenFolderDialog.ShowNewFolderButton = $false
+        $OpenFolderDialog.RootFolder = "MyComputer"
+        $Topmost = New-Object System.Windows.Forms.Form
+        $Topmost.TopMost = $True
+        $Topmost.MinimizeBox = $True
+        $OpenFolderDialog.ShowDialog($Topmost)
     }
-}
 
-End
-{
-    $Reader.Close()
-    $Reader.Dispose()
+    $Result = Get-FolderPath
 
-    if($CsvDataLinesCount -gt 0)
+    if($Result -eq "OK")
     {
-        $true
+        $script:FolderPath = $OpenFolderDialog.SelectedPath
     }
     else
     {
-        $false
+        $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+        Exit
     }
-}
-
-}
-
-# Select Log File (XPdb)
-Function Get-LogFile($InitialDirectory)
-{ 
-    [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
-    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $OpenFileDialog.InitialDirectory = $InitialDirectory
-    $OpenFileDialog.Filter = "XProtect Behavioral Service Database|XPdb|All Files (*.*)|*.*"
-    $OpenFileDialog.ShowDialog()
-    $OpenFileDialog.Filename
-    $OpenFileDialog.ShowHelp = $true
-    $OpenFileDialog.Multiselect = $false
-}
-
-$Result = Get-LogFile
-
-if($Result -eq "OK")
-{
-    $script:DatabaseFile = $Result[1]
 }
 else
 {
-    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
-    Exit
+    $script:FolderPath = $InputDir
 }
 
 # Create a record of your PowerShell session to a text file
 Start-Transcript -Path "$OUTPUT_FOLDER\Transcript.txt"
 
 # Get Start Time
-$startTime = (Get-Date)
+$script:startTime = (Get-Date)
 
 # Logo
 $Logo = @"
@@ -355,7 +302,7 @@ Write-Output "$Logo"
 Write-Output ""
 
 # Header
-Write-Output "XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
+Write-Output "DSStore-Analyzer v0.1 - Automated Forensic Analysis of DS_Store Files for DFIR"
 Write-Output "(c) 2025 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
 Write-Output ""
 
@@ -364,6 +311,57 @@ $AnalysisDate = [datetime]::Now.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss"
 Write-Output "Analysis date: $AnalysisDate UTC"
 Write-Output ""
 
+# Input-Check
+if (!(Test-Path "$FolderPath"))
+{
+    Write-Host "[Error] $FolderPath does not exist." -ForegroundColor Red
+    Write-Host ""
+    Stop-Transcript
+    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+    Exit
+}
+else
+{
+    if (!(Get-Item $FolderPath) -is [System.IO.DirectoryInfo])
+    {
+        Write-Host "[Error] No Folder Path provided." -ForegroundColor Red
+        Write-Host ""
+        Stop-Transcript
+        $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+        Exit
+    }
+}
+
+# Count .DS_Store Files
+[int]$Bud1 = "0"
+$Files = (Get-ChildItem $FolderPath -Filter ".DS_Store" -Recurse).FullName
+ForEach ($File in $Files)
+{
+    if ($PSEdition -eq "Core")
+    {
+        $Bytes = (Get-Content -Path $File -AsByteStream -ReadCount 1 -TotalCount 8 | Select-Object -SKip 4) # PowerShell 7
+    }
+    else
+    {
+        $Bytes = (Get-Content -Path $File -Encoding Byte -ReadCount 1 -TotalCount 8 | Select-Object -SKip 4) # PowerShell 5.1
+    }
+
+    $Signature = ([System.BitConverter]::ToString($Bytes)).Replace("-"," ")
+    if ($Signature -eq "42 75 64 31") # Magic Bytes
+    {
+        $Bud1++
+    }
+}
+
+$Count = '{0:N0}' -f $Bud1
+Write-Output "[Info]  Processing $Bud1 DS_Store File(s) ..."
+
+# Input Size
+$InputSize = Get-FileSize((Get-ChildItem -Path "$FolderPath" -Filter ".DS_Store" -Recurse | Measure-Object Length -Sum).Sum)
+Write-Output "[Info]  Total Input Size: $InputSize"
+
+}
+
 #endregion Header
 
 #############################################################################################################################################################################################
@@ -371,288 +369,210 @@ Write-Output ""
 
 #region Analysis
 
-# XProtect Behavioral Service (XBS)
+# Desktop Service Store Files (.DS_Store)
 
-# Aftermath Source:
-# Aftermath_Collection\Aftermath_<SERIAL_NUMBER>.zip\Artifatcs\raw\xbs\XPdb
+# Source: 13Cubed - https://www.youtube.com/watch?v=5VKTaFBlMcE
 
-# Check if Database File exists
-if (!(Test-Path "$($DatabaseFile)"))
+# Basics
+# - Present in all versions of Mac OS X
+#   - OSX 10.4 (Tiger) extended their use to include Spotlight related metadata
+# - Similar to desktop.ini and ShellBags in Windows
+# - Shows folders accessed within Finder (the macOS GUI)
+# - Stores window view settings, icon positions, sorting preferences, windows sizes and positions, and other metadata
+# - Files are created in the emclosing (parent) folder when viewed in Icon, List, or Gallery View, but NOT in Column View
+# - Applies to local, external, and network locations
+
+# Note: .Trash is protected by System Integrity Protection (SIP) --> csrutil status
+
+# Caveats
+# - Full paths are NOT included
+#   - Trash Put Back Locations are noted exception
+# - Timestamps are NOT included
+#   - Parsing tools can derive some time-related information based upon file system timestamps for the .DS_Store files themselves
+# - Data is volatile
+#   - When a file is deleted/moved, its associated records are removed
+#   - When a file is renamed, its associated records are renamed
+
+Function Invoke-DSStoreParser {
+
+$StartTime_DSStoreParser = (Get-Date)
+
+# DSStoreParser by Nicole Ibrahim
+if (Test-Path "$($DSStoreParser)")
 {
-    Write-Host "[Error] $DatabaseFile does not exist." -ForegroundColor Red
-    Write-Host ""
-    Stop-Transcript
-    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
-    Exit
-}
+    Write-Output "[Info]  Parsing Desktop Service Store File(s) w/ DSStoreParser ..."
+    New-Item "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV" -ItemType Directory -Force | Out-Null
 
-# Check Signature (Magic Number)
-if ($PSEdition -eq "Core")
-{
-    $Bytes = (Get-Content -Path $DatabaseFile -AsByteStream -ReadCount 1 -TotalCount 16) # PowerShell 7
+    & $DSStoreParser -s "$FolderPath" -o "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV" > "$OUTPUT_FOLDER\DSStoreParser\DSStoreParser.txt"
 }
 else
 {
-    $Bytes = (Get-Content -Path $DatabaseFile -Encoding Byte -ReadCount 1 -TotalCount 16) # PowerShell 5.1
+    Write-Host "[Error] DSStoreParser.exe NOT found." -ForegroundColor Red
 }
 
-$Signature = ([System.BitConverter]::ToString($Bytes)).Replace("-"," ") # SQLite format 3
-
-if (!($Signature -eq "53 51 4c 69 74 65 20 66 6f 72 6d 61 74 20 33 00")) # Magic Bytes
+# Stats
+if (Test-Path "$OUTPUT_FOLDER\DSStoreParser\DSStoreParser.txt")
 {
-    Write-Host "[Error] No SQLite3 Database File provided." -ForegroundColor Red
-    Stop-Transcript
-    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
-    Exit
-}
+    $LogFile = Get-Content "$OUTPUT_FOLDER\DSStoreParser\DSStoreParser.txt"
 
-# Check if sqlite3.exe exists
-if (!(Test-Path "$($SQLite3)"))
-{
-    Write-Host "[Error] sqlite3.exe NOT found." -ForegroundColor Red
-    Stop-Transcript
-    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
-    Exit
-}
+    # Record Parsed
+    [int]$Parsed = $LogFile | Select-String -Pattern "Records Parsed:" | ForEach-Object{($_ -split "\s+")[-1]}
+    $Count = '{0:N0}' -f $Parsed
+    Write-Output "[Info]  $Count Records found"
 
-$FileName = [IO.Path]::GetFileName($DatabaseFile)
-Write-Output "[Info]  Processing XProtect Behavioral Service Database ($FileName) ..."
-
-# MD5 Hash
-$MD5 = (Get-FileHash -LiteralPath "$DatabaseFile" -Algorithm MD5).Hash
-Write-Output "[Info]  MD5 Hash: $MD5"
-
-# SHA1 Hash
-$SHA1 = (Get-FileHash -LiteralPath "$DatabaseFile" -Algorithm SHA1).Hash
-Write-Output "[Info]  SHA1 Hash: $SHA1"
-
-# SHA256 Hash
-$SHA256 = (Get-FileHash -LiteralPath "$DatabaseFile" -Algorithm SHA256).Hash
-Write-Output "[Info]  SHA256 Hash: $SHA256"
-
-# Input Size
-$InputSize = Get-FileSize((Get-Item "$DatabaseFile").Length)
-Write-Output "[Info]  Total Input Size: $InputSize"
-
-# Count Rows of SQLite3 Database (w/ thousands separators)
-[int]$Count = (& $SQLite3 -readonly $DatabaseFile 'SELECT COUNT(*) FROM EVENTS')
-$Rows = '{0:N0}' -f $Count
-Write-Output "[Info]  Total Lines: $Rows"
-
-# Processing XPdb.db
-New-Item "$OUTPUT_FOLDER\CSV" -ItemType Directory -Force | Out-Null
-New-Item "$OUTPUT_FOLDER\XLSX" -ItemType Directory -Force | Out-Null
-
-# EVENTS Table
-
-# CSV
-& $SQLite3 -readonly -header -csv $DatabaseFile 'SELECT * FROM EVENTS' | Out-File "$OUTPUT_FOLDER\CSV\Untouched.csv" -Encoding UTF8
-
-# XLSX
-if (Test-Path "$OUTPUT_FOLDER\CSV\Untouched.csv")
-{
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\Untouched.csv" -MaxLines 2)
+    # Errors
+    [int]$Errors = ($LogFile | Select-String -Pattern "Error:" | Measure-Object).Count
+    if ($Errors -eq 0)
     {
-        $IMPORT = Import-Csv "$OUTPUT_FOLDER\CSV\Untouched.csv" -Delimiter ","
-        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\XLSX\Untouched.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Events" -CellStyleSB {
-        param($WorkSheet)
-        # BackgroundColor and FontColor for specific cells of TopRow
-        $ColumnNumber = $WorkSheet.Dimension.End.Column
-        $ColumnName = (Get-ExcelColumnName $ColumnNumber).ColumnName
-        Set-Format -Address $WorkSheet.Cells["A1:$($ColumnName)1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-        # HorizontalAlignment "Center" of columns A-Q
-        $WorkSheet.Cells["A:$($ColumnName)"].Style.HorizontalAlignment="Center"
-        }
+        Write-Host "[Info]  Files with Errors: 0" -ForegroundColor Green
+    }
+    else
+    {
+        Write-Host "[Info]  Files with Errors: $Errors" -ForegroundColor Red
     }
 }
 
-# SQL Query
-$SQL = 
-"
-SELECT 
-	dt AS 'DateTime',
-	violated_rule AS 'Bastion Rule',
-	exec_path AS 'Path',
-    exec_signing_id AS 'Identifier',
-    exec_team_id AS 'Team Identifier',
-    exec_sha256 AS 'SHA256',
-    CASE exec_is_notarized
-        WHEN 0 THEN 'No'
-        WHEN 1 THEN 'Yes'
-    END AS 'Notarized',
-    CASE reported
-        WHEN 0 THEN 'No'
-        WHEN 1 THEN 'Yes'
-    END AS 'Reported'
-FROM EVENTS
-"
+# Reports
+Write-Output "[Info]  Creating Reports ..."
+New-Item "$OUTPUT_FOLDER\DSStoreParser\Reports\XLSX" -ItemType Directory -Force | Out-Null
 
-# Execute SQL Query
-$Results = @(& $SQLite3 -readonly -separator '**' $DatabaseFile $SQL |
-ConvertFrom-String -Delimiter '\u002A\u002A' -PropertyNames "DateTime","Bastion Rule","Path","Identifier","Team Identifier","SHA256","Notarized","Reported")
+# Report Columns
+# generated_path: The generated path using the location of the .DS_Store file and the record filename stored in the .DS_Store file.
+# record_filename: The record filename stored in the .DS_Store file.
+# record_type: One of 42 identified record types. Contains the 4 letter code of the record type as well as a description of the code.
+# record_format: The format that the record data is stored in.
+# record_data: The record data.
+# src_create_time: The created timestamp of the source .DS_Store file.
+# src_mod_time: The modified timestamp of the source .DS_Store file.
+# src_acc_time: The accessed timestamp of the source .DS_Store file.
+# src_metadata_change_time: The metadata change timestamp of the source .DS_Store file.
+# src_permissions: The permissions, owner ID, and group ID of the source .DS_Store file.
+# src_size: The size of the source .DS_Store file.
+# block: The block within the .DS_Store that this record was parsed from.
+# src_file: The location of the .DS_Store file this record was parsed from.
 
-# CSV
-$Output = [Collections.Generic.List[PSObject]]::new()
-ForEach($Record in $Results)
+# All_Parsed_Report - Contains all parsed records
+$All_Parsed_Report = (Get-ChildItem "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV" | Where-Object { $_.BaseName -match "DS_Store-All_Parsed_Report" }).BaseName
+if (Test-Path "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$All_Parsed_Report.tsv")
 {
-    $CreatedDateTime = $Record | Select-Object -ExpandProperty DateTime
-
-    $Line = [PSCustomObject]@{
-    "DateTime"        = (Get-Date $CreatedDateTime).ToString("yyyy-MM-dd HH:mm:ss")
-    "Bastion Rule"    = $Record."Bastion Rule"
-    "Path"            = $Record.Path
-    "Identifier"      = $Record.Identifier
-    "Team Identifier" = $Record."Team Identifier"
-    "SHA256"          = $Record.SHA256
-    "Notarized"       = $Record.Notarized
-    "Reported"        = $Record.Reported
-    }
-
-    $Output.Add($Line)
-}
-
-$Output | Export-Csv -Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -NoTypeInformation -Encoding UTF8
-
-# XLSX
-if (Test-Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv")
-{
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -MaxLines 2)
+    if([int](& $xsv count -d "`t" "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$All_Parsed_Report.tsv") -gt 0)
     {
-        $IMPORT = Import-Csv "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_.DateTime -as [datetime] } -Descending
-        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\XLSX\XProtect-BehaviorService.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "XBS" -CellStyleSB {
+        $IMPORT = Import-Csv "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$All_Parsed_Report.tsv" -Delimiter "`t" -Encoding UTF8
+        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\DSStoreParser\Reports\XLSX\All_Parsed_Report.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "All Parsed Report" -CellStyleSB {
         param($WorkSheet)
         # BackgroundColor and FontColor for specific cells of TopRow
-        Set-Format -Address $WorkSheet.Cells["A1:H1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-        # HorizontalAlignment "Center" of columns A-B and D-H
-        $WorkSheet.Cells["A:B"].Style.HorizontalAlignment="Center"
-        $WorkSheet.Cells["D:H"].Style.HorizontalAlignment="Center"
-        # ConditionalFormatting - Notarized
-        $LastRow = $WorkSheet.Dimension.End.Row
-        Add-ConditionalFormatting -Address $WorkSheet.Cells["G2:G$LastRow"] -WorkSheet $WorkSheet -RuleType 'Expression' 'NOT(ISERROR(FIND("Yes",$G2)))' -BackgroundColor $Green
-        Add-ConditionalFormatting -Address $WorkSheet.Cells["G2:G$LastRow"] -WorkSheet $WorkSheet -RuleType 'Expression' 'NOT(ISERROR(FIND("No",$G2)))' -BackgroundColor Red
+        Set-Format -Address $WorkSheet.Cells["A1:M1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+        # HorizontalAlignment "Left" of column A
+        $WorkSheet.Cells["E:E"].Style.HorizontalAlignment="Left"
+        # HorizontalAlignment "Center" of columns A-D and F-M
+        $WorkSheet.Cells["A:D"].Style.HorizontalAlignment="Center"
+        $WorkSheet.Cells["F:M"].Style.HorizontalAlignment="Center"
+        # ConditionalFormatting - record_filename
+        Add-ConditionalFormatting -Address $WorkSheet.Cells["B:B"] -WorkSheet $WorkSheet -RuleType 'Expression' 'NOT(ISERROR(FIND("Drag into Terminal",$B1)))' -BackgroundColor Red # Drag-to-Terminal technique (to override Gatekeeper)
         }
     }
 }
 
 # File Size (XLSX)
-if (Test-Path "$OUTPUT_FOLDER\XLSX\XProtect-BehaviorService.xlsx")
+if (Test-Path "$OUTPUT_FOLDER\DSStoreParser\Reports\XLSX\All_Parsed_Report.xlsx")
 {
-    $Size = Get-FileSize((Get-Item "$OUTPUT_FOLDER\XLSX\XProtect-BehaviorService.xlsx").Length)
+    $Size = Get-FileSize((Get-Item "$OUTPUT_FOLDER\DSStoreParser\Reports\XLSX\All_Parsed_Report.xlsx").Length)
     Write-Output "[Info]  File Size (XLSX): $Size"
 }
 
-#endregion Analysis
+# Access_Report - Contains records specific to folder accesses
+$Access_Report = (Get-ChildItem "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV" | Where-Object { $_.BaseName -match "DS_Store-Folder_Access_Report" }).BaseName
+if (Test-Path "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$All_Parsed_Report.tsv")
+{
+    if([int](& $xsv count -d "`t" "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$Access_Report.tsv") -gt 0)
+    {
+        $IMPORT = Import-Csv "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$Access_Report.tsv" -Delimiter "`t" -Encoding UTF8
+        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\DSStoreParser\Reports\XLSX\Access_Report.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Access Report" -CellStyleSB {
+        param($WorkSheet)
+        # BackgroundColor and FontColor for specific cells of TopRow
+        Set-Format -Address $WorkSheet.Cells["A1:M1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+        # HorizontalAlignment "Left" of column A
+        $WorkSheet.Cells["E:E"].Style.HorizontalAlignment="Left"
+        # HorizontalAlignment "Center" of columns A-D and F-M
+        $WorkSheet.Cells["A:D"].Style.HorizontalAlignment="Center"
+        $WorkSheet.Cells["F:M"].Style.HorizontalAlignment="Center"
+        }
+    }
+}
+
+# Miscellaneous_Info_Report - Contains other miscellaneous records parsed
+$Miscellaneous_Info_Report = (Get-ChildItem "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV" | Where-Object { $_.BaseName -match "DS_Store-Miscellaneous_Info_Report" }).BaseName
+if (Test-Path "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$Miscellaneous_Info_Report.tsv")
+{
+    if([int](& $xsv count -d "`t" "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$Miscellaneous_Info_Report.tsv") -gt 0)
+    {
+        $IMPORT = Import-Csv "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$Miscellaneous_Info_Report.tsv" -Delimiter "`t" -Encoding UTF8
+        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\DSStoreParser\Reports\XLSX\Miscellaneous_Info_Report.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Miscellaneous Info Report" -CellStyleSB {
+        param($WorkSheet)
+        # BackgroundColor and FontColor for specific cells of TopRow
+        Set-Format -Address $WorkSheet.Cells["A1:M1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+        # HorizontalAlignment "Left" of column A
+        $WorkSheet.Cells["E:E"].Style.HorizontalAlignment="Left"
+        # HorizontalAlignment "Center" of columns A-D and F-M
+        $WorkSheet.Cells["A:D"].Style.HorizontalAlignment="Center"
+        $WorkSheet.Cells["F:M"].Style.HorizontalAlignment="Center"
+        }
+    }
+}
+
+# Get End Time
+$EndTime_DSStoreParser = (Get-Date)
+
+# Duration DSStoreParser
+$Time_DSStoreParser = ($EndTime_DSStoreParser-$StartTime_DSStoreParser)
+('DSStoreParser duration:  {0} h {1} min {2} sec' -f $Time_DSStoreParser.Hours, $Time_DSStoreParser.Minutes, $Time_DSStoreParser.Seconds) >> "$OUTPUT_FOLDER\Stats.txt"
+
+}
+
+#endregion Analyis
 
 #############################################################################################################################################################################################
 #############################################################################################################################################################################################
 
 #region Statistics
 
+Function Get-Statistics {
+
+# Get Start Time
+$script:StartTime_Stats = (Get-Date)
+
 # Stats
-New-Item "$OUTPUT_FOLDER\Stats" -ItemType Directory -Force | Out-Null
+New-Item "$OUTPUT_FOLDER\DSStoreParser\Stats" -ItemType Directory -Force | Out-Null
 
-if (Test-Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv")
+# Data Import
+$All_Parsed_Report = (Get-ChildItem "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV" | Where-Object { $_.BaseName -match "DS_Store-All_Parsed_Report" }).BaseName
+$Data = Import-Csv "$OUTPUT_FOLDER\DSStoreParser\Reports\TSV\$All_Parsed_Report.tsv" -Delimiter "`t" -Encoding UTF8
+
+# Record Types (Stats)
+# Note: There are 42 record types currently identified.
+$Total = ($Data | Select-Object record_type | Measure-Object).Count
+if ($Total -ge "1")
 {
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -MaxLines 2)
-    {
-        $XBS = Import-Csv "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_.DateTime -as [datetime] }
-        
-        # Time Frame
-        $DateTime = $XBS | Select-Object DateTime
-        $StartDateTime = $DateTime | Select-Object -First 1 | Select-Object -ExpandProperty DateTime
-        $EndDateTime = $DateTime | Select-Object -Last 1 | Select-Object -ExpandProperty DateTime
-        Write-Output "[Info]  Log data from $StartDateTime UTC until $EndDateTime UTC"
-
-        # Bastion Rules
-        $Total = ($XBS | Select-Object "Bastion Rule" | Measure-Object).Count
-        $Count = ($XBS | Select-Object "Bastion Rule" -Unique | Measure-Object).Count
-        Write-Output "[Info]  $Count violated Bastion Rules found ($Total)"
-
-        # Signing Identifier
-        $Total = ($XBS | Select-Object "Identifier" | Measure-Object).Count
-        $Count = ($XBS | Select-Object "Identifier" -Unique | Measure-Object).Count
-        Write-Output "[Info]  $Count Signing Identifier found ($Total)"
-
-        # Team Identifier
-        $Total = ($XBS | Select-Object "Team Identifier" | Measure-Object).Count
-        $Count = ($XBS | Select-Object "Team Identifier" -Unique | Measure-Object).Count
-        Write-Output "[Info]  $Count Team Identifier found ($Total)"
-
-        # SHA256 --> VirusTotal-CLI.ps1
-        New-Item "$OUTPUT_FOLDER\TXT" -ItemType Directory -Force | Out-Null
-        $SHA256 = ($XBS | Where-Object { $_.SHA256 -match "^[A-Fa-f0-9]{64}$" } | Select-Object SHA256 -Unique | Sort-Object SHA256).SHA256
-        $SHA256 | Out-File "$OUTPUT_FOLDER\TXT\SHA256.txt" -Encoding UTF8
-
-        # Bastion Rule (Stats)
-        $Total = ($XBS | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object "Bastion Rule" | Select-Object @{Name='Bastion Rule'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Bastion-Rules.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Bastion Rules" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns B-C
-            $WorkSheet.Cells["B:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Identifier (Stats)
-        $Total = ($XBS | Where-Object {$_.Identifier -ne ""} | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object Identifier | Select-Object @{Name='Identifier'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Identifier.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Identifier" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns B-C
-            $WorkSheet.Cells["B:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Notarized (Stats)
-        $Total = ($XBS | Where-Object {$_.Notarized -ne ""} | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object Notarized | Select-Object @{Name='Notarized'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Notarized.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Notarized" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns A-C
-            $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Reported (Stats)
-        $Total = ($XBS | Where-Object {$_.Reported -ne ""} | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object Reported | Select-Object @{Name='Reported'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Reported.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Reported" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns A-C
-            $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Team Identifier (Stats)
-        $Total = ($XBS | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object "Team Identifier" | Select-Object @{Name='Team Identifier'; Expression={if($_.Name){$_.Name}else{'N/A'}}},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Team-Identifier.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Team Identifier" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns B-C
-            $WorkSheet.Cells["B:C"].Style.HorizontalAlignment="Center"
-            }
-        }
+    $Stats = $Data | Group-Object record_type | Select-Object @{Name='Record Type'; Expression={if($_.Name){$_.Name}else{'N/A'}}},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+    $Stats | Export-Excel -Path "$OUTPUT_FOLDER\DSStoreParser\Stats\RecordType.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Record Type" -CellStyleSB {
+    param($WorkSheet)
+    # BackgroundColor and FontColor for specific cells of TopRow
+    Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+    # HorizontalAlignment "Center" of columns A-C
+    $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
     }
+
+    $RecordTypes = ($Data | Select-Object record_type -Unique | Measure-Object).Count
+    Write-Output "[Info]  $RecordTypes Record Types found (42)"
+}
+
+# Get End Time
+$EndTime_Stats = (Get-Date)
+
+# Duration Stats
+$Time_Stats = ($EndTime_Stats-$StartTime_Stats)
+('Duration Stats Creation: {0} h {1} min {2} sec' -f $Time_Stats.Hours, $Time_Stats.Minutes, $Time_Stats.Seconds) >> "$OUTPUT_FOLDER\Stats.txt"
+
 }
 
 #endregion Statistics
@@ -661,6 +581,8 @@ if (Test-Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv")
 #############################################################################################################################################################################################
 
 #region Footer
+
+Function Footer {
 
 # Get End Time
 $endTime = (Get-Date)
@@ -678,22 +600,92 @@ Write-Host ""
 Stop-Transcript
 Start-Sleep 0.5
 
-# Reset Progress Preference
-$Global:ProgressPreference = $OriginalProgressPreference
+# MessageBox UI
+$MessageBody = "Status: DS_Store Analysis completed."
+$MessageTitle = "DSStore-Analyzer.ps1 (https://lethal-forensics.com/)"
+$ButtonType = "OK"
+$MessageIcon = "Information"
+$Result = [System.Windows.Forms.MessageBox]::Show($MessageBody, $MessageTitle, $ButtonType, $MessageIcon)
 
-# Reset Windows Title
-$Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+if ($Result -eq "OK" ) 
+{
+    # Reset Progress Preference
+    $Global:ProgressPreference = $OriginalProgressPreference
+
+    # Reset Windows Title
+    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+    Exit
+}
+
+}
 
 #endregion Footer
 
 #############################################################################################################################################################################################
 #############################################################################################################################################################################################
 
+# Main
+Header
+Invoke-DSStoreParser
+Get-Statistics
+Footer
+
+#############################################################################################################################################################################################
+#############################################################################################################################################################################################
+
+# Record Types indicating a Folder was Accessed
+#
+# BKGD: Finder Folder Background Picture
+# bRsV: Browse in Selected View
+# bwsp: Browser Window Settings
+# dscl: Directory is Expanded in List View
+# fdsc: Directory is Expanded in Limited Finder Window
+# fwi0: Finder Window Information
+# fwsw: Finder Window Sidebar Width
+# fwvh: Finder Window Sidebar Height
+# glvp: Gallery View Settings
+# GRP0: Group Items By
+# icgo: icgo. Unknown. Icon View?
+# icsp: icsp. Unknown. Icon View?
+# ICVO: Icon View Options
+# icvo: Icon View Options
+# icvp: Icon View Settings
+# icvt: Icon View Text Size
+# info: info: Unknown. Finder Info?:
+# lssp: List View Scroll Position
+# lsvC: List View Columns
+# LSVO: List View Options
+# lsvo: List View Options
+# lsvp: List View Settings
+# lsvP: List View Settings
+# lsvt: List View Text Size
+# pBB0: Finder Folder Background Image Bookmark
+# pBBk: Finder Folder Background Image Bookmark
+# pict: Background Image
+# vSrn: Opened Folder in new tab
+# vstl: View Style Selected
+
+# Other Miscellaneous Record Types
+#
+# clip: Text Clipping
+# cmmt: Finder Comments
+# dilc: Desktop Icon Location
+# extn: File Extension
+# Iloc: Icon Location
+# lg1S: Logical Size
+# logS: Logical Size
+# modD: Modified Date
+# moDD: Modified Date
+# ph1S: Physical Size
+# phyS: Physical Size
+# ptbL: Trash Put Back Location
+# ptbN: Trash Put Back Name
+
 # SIG # Begin signature block
 # MIIrywYJKoZIhvcNAQcCoIIrvDCCK7gCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsCoI6ZDUMWXavzfMhQrwgfUO
-# x4SggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUV5dMx0Qv8fEKEUYmERscuIwG
+# HTCggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -895,33 +887,33 @@ $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
 # Z28gUHVibGljIENvZGUgU2lnbmluZyBDQSBSMzYCEQCMQZ6TvyvOrIgGKDt2Gb08
 # MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MCMGCSqGSIb3DQEJBDEWBBRti+ZTqQXrK+HW7YZ1hGuUK1wNBDANBgkqhkiG9w0B
-# AQEFAASCAgC94i48AEPML2hZZ3k5Ybj/atXTqSn1Ww6BbZcVBQm3S1k6Gxhb9nv5
-# O/aC2W0/385bJXnQAYj0Y8/VaSErVk8q8RbntJwAe4kuaugQ42YGzWQBCpmJ+WVF
-# As2YyBmNy0K2vWVkU+UGfyc69jtKCMJT11EnGztqI50yeu/QUwoscxe+vfxiY8tj
-# AHlCXFPLX3NFWSsJEN9Y+tv09RFgmWuskGziGLvRMmECmSpycaNVMLYub0QBnpng
-# Uqo1LX+J47htT66cf6Des7z1c4EWFHFT4k/2zUDelI/Vc1BH8ek4aV7wujdmdc+j
-# P9zzOpk4+tgrsp7M94T7A3OLaEHx6v7nIkgC21qxYoargD0o0yF1X49aVS/6kraX
-# 40J7zFGLyrMOar6yH9eAoZemhKw6AtPuwL392fJybIrE9iw5zMUEepRop935Dyvb
-# xvZIG+Bca6phG09w21KpAOUmdlOruFvPPqR3yt4W+dKJWXJBDS05gDYXAKyPKLMY
-# Kp4INSyFKcjXImMpvCCTMJxH/4hSCA+aBqpKlRmmU5vJ2rRoF12Cr+77txGzK/Rc
-# unVN0gKv2kxO1Q9t33Me4EJJ1ziLtNyPc6ZPUXzh5W1hGfZuF1ckou4HtopFzyJN
-# lnN3rBAQ/MmUFBSJdhS9NP+0BTKVU/OXxMCGdCpuEeTc4VwzoaI5qqGCAyMwggMf
+# MCMGCSqGSIb3DQEJBDEWBBRsCJ31zbVsE8L82l/TvVNZplrKMzANBgkqhkiG9w0B
+# AQEFAASCAgC8A0T26eVqKZGDdIVhXop86GPwuzWMwcnpVicCGLO6aI5MU15cz4C2
+# 3SQmfAthoW2Phjwg/HtQkaQVfB+QmyDxK+w+Ihnl0s3AiCKx4LPx4JkzuElQHooL
+# uuOo2C98Htkt9skQY3deojo5VHsC483QUtMQUMI8W9LmzYDVLOgKVgGM5NZcpjyG
+# eaqYCbUgAk6wDqg6mDwc24BEbyRIqQh09BrASR5Sbx2xLcjvKw1iGKtWYo13LoJZ
+# PpWK9PTRbXfFjUL89tkZjJo82aazQoCPL4LR50JguuY/MskSjqyJGW4lSME+6jVA
+# rKtD+MRv8cJpJeljhjcsEypNJWpOe9fQVAoUX/hlMhGv3oPJ18eh1r0E4ZOR88fz
+# 9HyfW1nrmN3/NwITnD+Fv8avL8sODMsmV3csaiCQRoEkn+xZdL0D241zO2y7UcyE
+# 9xO9ryQhdE5mPembD5RfXAMcGMWK4HYOYS5YzRmt5YYT3EwyWZU4QTpz+dtJvJc5
+# G9Ah4/AQhEBOqAVBgUQZB39oiANfsBIuaBIBubaXBCW5G00e7XHG5/e0waQ7Jwcg
+# JBvuSQV56iqiJPlTZ7tI3dY2KlfTWyWXzySC7oTKh1cvSkIeuL105lVjfgUD/IOT
+# DiVrLK+PP/6iLMKlJVA/+UxZ79gbxMEm+XeM+3186/8Y3gKyXGdIrKGCAyMwggMf
 # BgkqhkiG9w0BCQYxggMQMIIDDAIBATBqMFUxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLDAqBgNVBAMTI1NlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgQ0EgUjM2AhEApCk7bh7d16c0CIetek63JDANBglghkgBZQMEAgIF
 # AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI1
-# MTEyMDA2MTc1MFowPwYJKoZIhvcNAQkEMTIEMFKUnXuxVW7METSIdzYaAY2Zs4qx
-# g9Y65+oP6yQwyB0qxRlLXVoVj57FFkI9aI2FNDANBgkqhkiG9w0BAQEFAASCAgBn
-# Sc7uc69fq6wueeKKYX8q604ZqKtLi57Vq/0Na6hYetiTBEoIsJDcfc+Njnl19+V+
-# ioNbBMkZXx2H2QDTC4ScEgV50x9+zd+HiNM/VG8iegLEMUrTXGTRymF134T2YPKy
-# 2QQopzs1ptkMILj+O6pT9q7hV8LPftPrHA/SvvROme6/WlqUDF6ySsIh8quw6WUA
-# 2nubjmJigHLTYhbo4YzzCJPY/sfpfCDQijfwomvXSYsRY7TjQsdHpMHgQ7pzKONd
-# /JeYcG9OnK7DhuUnbhTWt9Z4lGYS7hW6FqYORQ2+Ntd+yM+AZJkWa4r7U2fdtqyg
-# AxRHTKdubWkiZ4X/173Ux1ZNM4scZRBxM8KSscefxNxmBIAwCAGQUTDlMvf/rkno
-# 6qBplJOJ9KAptTfeyaeuRUY0PlycZg06LfptaIg8YHTRGPSGy8VwmZ2ycsk3AS2/
-# 4v/fc2e1MG6u/lvwU1pQGNQ06BpQdkPE1hjshzMkrL7vxldRRSRc9AbB4NR8VE2q
-# VFfrduCXCsqZA8XK2Qix9hZ1Iy6kRihG7qGrHQ0/iNyKF4IXrA+vaQTo9NZAJsLa
-# wYG+DhQd2rLCD/umJe3oy67ywESD9QcHRmR63dnBb4Sc/QvrvNvrUAiiohdWz2sq
-# gbNk91/OGD+9s98K4FijmSwPoWZTz+Eg+C3xfbUUXw==
+# MTEyMDA2MTcyN1owPwYJKoZIhvcNAQkEMTIEMNKPv9G0l6WYxfzUc/JDpSg7Ofpy
+# 3DWB9u2Lpqi1Q2wpJY8wjgRCVX7e/scgQywqhTANBgkqhkiG9w0BAQEFAASCAgBh
+# EQAYwVCnNJZKiFpvlfRYu/R6kRernh8i1iaRN49vEiYfa0+Qg6aR6vC+w0jOXISo
+# PihFpjV9wMaF8A3maNU8Vn8SufbJiQKieTOAEnEYfpemsDOfk5V4O1TuQfG10kEL
+# K/BuKqlUsmTUOjHegB+rb9akj54wBeFcl4I1bLkzyum/dNQ9XmSmiTYTos4wA2cO
+# TAY5X8R7iQM+UyfmpgOtwgt9WAPOtGLJKXMS28hLfIgSxx+P3RKcUAqNIq/bsYXV
+# 3RL+XBxxvpuQ3c1YwMSA00oVQItOgTmFIr2mxR3Vpl10eXQ6JP7u5lynLJZZDxxy
+# lTm66cj1h6tR7q0r9Z7jKyusR8eVbK7vX9ONELEnMk0iWy6a9sDHpTssTjq3gh6n
+# ZgxJhje1JyXmuflVmBulKbP4fP91HIHZYPLXWv72vw7EmmOZEWe5ZRvk0VJn2V3r
+# zNMeAdBmDEfdLQBxI6I4jHzT4gdjHnC21D7Amk4xAst/jRQZbaD3bitGJ19Uj4qO
+# N2ulSxA1QPJc0tArjC0mHRdKrRS3ZXfoIWvkPmxj1cSYFJ62TF8iEf2HJPIIEVCw
+# puiBbW1ADE1Os0kWahnAcxjRyEAvp7C6nHUB+Q3THLzWMo2gzaVJN+wfnc6/xoau
+# Hg3hD3EoQSlvIWupMlXcjYZyy5qPgREnLfmB1KZkFw==
 # SIG # End signature block

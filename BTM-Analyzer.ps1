@@ -1,4 +1,4 @@
-﻿# XProtect-Analyzer v0.1
+﻿# BTM-Analyzer v0.1
 #
 # @author:    Martin Willing
 # @copyright: Copyright (c) 2025 Martin Willing. All rights reserved. Licensed under the MIT license.
@@ -20,13 +20,10 @@
 # ImportExcel v7.8.10 (2024-10-21)
 # https://github.com/dfinke/ImportExcel
 #
-# SQLite Tools for Windows v3.50.4 (2025-07-30)
-# https://sqlite.org/download.html --> Command-line tools for Windows x64 --> sqlite-tools-win-x64-3500400.zip
-#
 #
 # Changelog:
 # Version 0.1
-# Release Date: 2025-11-10
+# Release Date: 2025-11-20
 # Initial Release
 #
 #
@@ -39,27 +36,31 @@
 
 <#
 .SYNOPSIS
-  XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR
+  BTM-Analyzer v0.1 - Automated Forensic Analysis of BTM Dump File
 
 .DESCRIPTION
-  XProtect-Analyzer.ps1 is a PowerShell script utilized to simplify the analysis of the macOS XPdb.db.
+  BTM-Analyzer.ps1 is a PowerShell script utilized to simplify the analysis of the dumped BTM database (Background Task Management --> Persistence).
+
+  GUI: System Settings > General > Login Items & Extensions
+
+  CLI: sudo sfltool dumpbtm > ~/Desktop/btm.txt
 
 .PARAMETER OutputDir
-  Specifies the output directory. Default is "$env:USERPROFILE\Desktop\XProtect-Analyzer".
+  Specifies the output directory. Default is "$env:USERPROFILE\Desktop\BTM-Analyzer".
 
-  Note: The subdirectory 'XProtect-Analyzer' is automatically created.
+  Note: The subdirectory 'BTM-Analyzer' is automatically created.
 
 .PARAMETER Path
-  Specifies the path to the input file (XPdb).
+  Specifies the path to the input file (btm.txt).
 
 .EXAMPLE
-  PS> .\XProtect-Analyzer.ps1
+  PS> .\BTM-Analyzer.ps1
 
 .EXAMPLE
-  PS> .\XProtect-Analyzer.ps1 -Path "$env:USERPROFILE\Desktop\XPdb"
+  PS> .\BTM-Analyzer.ps1 -Path "$env:USERPROFILE\Desktop\btm.txt"
 
 .EXAMPLE
-  PS> .\XProtect-Analyzer.ps1 -Path "H:\macos-collector\Aftermath_Collection\XPdb" -OutputDir "H:\MacOS-Analyzer-Suite"
+  PS> .\BTM-Analyzer.ps1 -Path "H:\macos-collector\Aftermath_Collection\btm.txt" -OutputDir "H:\MacOS-Analyzer-Suite"
 
 .NOTES
   Author - Martin Willing
@@ -119,7 +120,7 @@ $script:Orange = [System.Drawing.Color]::FromArgb(255,192,0) # Orange
 # Output Directory
 if (!($OutputDir))
 {
-    $script:OUTPUT_FOLDER = "$env:USERPROFILE\Desktop\XProtect-Analyzer" # Default
+    $script:OUTPUT_FOLDER = "$env:USERPROFILE\Desktop\BTM-Analyzer" # Default
 }
 else
 {
@@ -130,14 +131,9 @@ else
     }
     else
     {
-        $script:OUTPUT_FOLDER = "$OutputDir\XProtect-Analyzer" # Custom
+        $script:OUTPUT_FOLDER = "$OutputDir\BTM-Analyzer" # Custom
     }
 }
-
-# Tools
-
-# SQLite3
-$script:SQLite3 = "$SCRIPT_DIR\Tools\SQLite\sqlite3.exe"
 
 # Configuration File (JSON)
 if(!(Test-Path "$PSScriptRoot\Config.json"))
@@ -171,9 +167,11 @@ else
 
 #region Header
 
+Function Header {
+
 # Windows Title
 $DefaultWindowsTitle = $Host.UI.RawUI.WindowTitle
-$Host.UI.RawUI.WindowTitle = "XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
+$Host.UI.RawUI.WindowTitle = "BTM-Analyzer v0.1 - Automated Forensic Analysis of BTM Dump File"
 
 # Check if the PowerShell script is being run with admin rights
 if (!([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
@@ -202,7 +200,7 @@ else
 }
 
 # Function Get-FileSize
-Function Get-FileSize()
+Function script:Get-FileSize
 {
     Param ([long]$Length)
     If ($Length -gt 1TB) {[string]::Format("{0:0.00} TB", $Length / 1TB)}
@@ -213,132 +211,46 @@ Function Get-FileSize()
     Else {""}
 }
 
-Function Test-Csv {
+# Add the required MessageBox class (Windows PowerShell)
+Add-Type -AssemblyName System.Windows.Forms
 
-<#
-.SYNOPSIS
-  Test-Csv - Fast Check if CSV is NOT empty
-
-.DESCRIPTION
-  The Test-Csv cmdlet checks if the rows of your CSV file are NOT empty.
-
-.PARAMETER Path
-  Specifies the path to the CSV file.
-
-.PARAMETER MaxLines
-  Specifies the maximum of lines to read from CSV file.
-
-.PARAMETER NoHeader (Optional)
-  If this switch is specified, function will NOT skip first line of the file. 
-
-.EXAMPLE
-  Test-Csv -Path <CSV> -MaxLines 2
-
-.EXAMPLE
-  Test-Csv -Path <CSV> -MaxLines 1 -NoHeader
-
-.NOTES
-  Author - Martin Willing
-
-.LINK
-  https://lethal-forensics.com/
-#>
-
-Param
-(
-    [Parameter(Mandatory = $true, ValueFromPipeline = $true, ValueFromPipelineByPropertyName = $true)]
-    [string]$Path,
-
-    [Parameter(Mandatory = $true, ValueFromPipelineByPropertyName = $true)]
-    [ValidateRange(1, [int]::MaxValue)]
-    [int]$MaxLines,
-
-    [Parameter(ValueFromPipelineByPropertyName = $true)]
-    [switch]$NoHeader
-)
-
-Begin
+# Select BTM Dump (btm.txt)
+if(!($Path))
 {
-    $Quotes    = '"'
-    $Delimiter = ','
-    $Regex     = "$Delimiter(?=(?:[^$Quotes]|$Quotes[^$Quotes]*$Quotes)*$)"
-}
-
-Process
-{
-    $Reader = New-Object -TypeName System.IO.StreamReader -ArgumentList $Path -ErrorAction Stop
-
-    $CsvRawLinesCount  = 0
-    $CsvDataLinesCount = 0
-
-    while($null -ne ($Line = $Reader.ReadLine()))
-    {
-        $CsvRawLinesCount++
-
-        if(!$NoHeader -and ($CsvRawLinesCount -eq 1))
-        {
-            continue
-        }
-
-        if($CsvRawLinesCount -gt $MaxLines)
-        {
-            break
-        }
-
-        if($Line -match $Regex)
-        {
-            $CsvDataLinesCount++
-        }
+    Function Get-LogFile($InitialDirectory)
+    { 
+        [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
+        $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+        $OpenFileDialog.InitialDirectory = $InitialDirectory
+        $OpenFileDialog.Filter = "BTM Dump|btm.txt|All Files (*.*)|*.*"
+        $OpenFileDialog.ShowDialog()
+        $OpenFileDialog.Filename
+        $OpenFileDialog.ShowHelp = $true
+        $OpenFileDialog.Multiselect = $false
     }
-}
 
-End
-{
-    $Reader.Close()
-    $Reader.Dispose()
+    $Result = Get-LogFile
 
-    if($CsvDataLinesCount -gt 0)
+    if($Result -eq "OK")
     {
-        $true
+        $script:LogFile = $Result[1]
     }
     else
     {
-        $false
+        $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+        Exit
     }
-}
-
-}
-
-# Select Log File (XPdb)
-Function Get-LogFile($InitialDirectory)
-{ 
-    [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
-    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $OpenFileDialog.InitialDirectory = $InitialDirectory
-    $OpenFileDialog.Filter = "XProtect Behavioral Service Database|XPdb|All Files (*.*)|*.*"
-    $OpenFileDialog.ShowDialog()
-    $OpenFileDialog.Filename
-    $OpenFileDialog.ShowHelp = $true
-    $OpenFileDialog.Multiselect = $false
-}
-
-$Result = Get-LogFile
-
-if($Result -eq "OK")
-{
-    $script:DatabaseFile = $Result[1]
 }
 else
 {
-    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
-    Exit
+    $script:LogFile = $Path
 }
 
 # Create a record of your PowerShell session to a text file
 Start-Transcript -Path "$OUTPUT_FOLDER\Transcript.txt"
 
 # Get Start Time
-$startTime = (Get-Date)
+$script:startTime = (Get-Date)
 
 # Logo
 $Logo = @"
@@ -355,7 +267,7 @@ Write-Output "$Logo"
 Write-Output ""
 
 # Header
-Write-Output "XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
+Write-Output "BTM-Analyzer v0.1 - Automated Forensic Analysis of BTM Dump File for DFIR"
 Write-Output "(c) 2025 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
 Write-Output ""
 
@@ -364,6 +276,8 @@ $AnalysisDate = [datetime]::Now.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss"
 Write-Output "Analysis date: $AnalysisDate UTC"
 Write-Output ""
 
+}
+
 #endregion Header
 
 #############################################################################################################################################################################################
@@ -371,174 +285,151 @@ Write-Output ""
 
 #region Analysis
 
-# XProtect Behavioral Service (XBS)
+# BTM Dump - App Background Activity (Persistence)
+
+# BTM, or Background Task Management, is a macOS framework that manages login and background items, which are applications that run tasks after you log in. 
+# It's handled by the BackgroundTaskManagementAgent and helps users and administrators control and see what's running in the background.
+
+# Background Managed Tasks --> Background Agents, Daemons, & Login Items
+
+# Location / Database Path (macOS 13+)
+# /private/var/db/com.apple.backgroundtaskmanagement/BackgroundItems-v*.btm
 
 # Aftermath Source:
-# Aftermath_Collection\Aftermath_<SERIAL_NUMBER>.zip\Artifatcs\raw\xbs\XPdb
+# Aftermath Collection\Persistence\btm.txt
 
-# Check if Database File exists
-if (!(Test-Path "$($DatabaseFile)"))
+Function Invoke-Processing {
+
+# Input-Check
+if (!(Test-Path "$LogFile" -PathType Leaf))
 {
-    Write-Host "[Error] $DatabaseFile does not exist." -ForegroundColor Red
+    Write-Host "[Error] $LogFile does not exist." -ForegroundColor Red
     Write-Host ""
     Stop-Transcript
     $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
     Exit
 }
 
-# Check Signature (Magic Number)
-if ($PSEdition -eq "Core")
+# Check File Extension
+$Extension = [IO.Path]::GetExtension($LogFile)
+if (!($Extension -eq ".txt" ))
 {
-    $Bytes = (Get-Content -Path $DatabaseFile -AsByteStream -ReadCount 1 -TotalCount 16) # PowerShell 7
-}
-else
-{
-    $Bytes = (Get-Content -Path $DatabaseFile -Encoding Byte -ReadCount 1 -TotalCount 16) # PowerShell 5.1
-}
-
-$Signature = ([System.BitConverter]::ToString($Bytes)).Replace("-"," ") # SQLite format 3
-
-if (!($Signature -eq "53 51 4c 69 74 65 20 66 6f 72 6d 61 74 20 33 00")) # Magic Bytes
-{
-    Write-Host "[Error] No SQLite3 Database File provided." -ForegroundColor Red
+    Write-Host "[Error] No TXT File provided." -ForegroundColor Red
+    Write-Host ""
     Stop-Transcript
     $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
     Exit
 }
 
-# Check if sqlite3.exe exists
-if (!(Test-Path "$($SQLite3)"))
-{
-    Write-Host "[Error] sqlite3.exe NOT found." -ForegroundColor Red
-    Stop-Transcript
-    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
-    Exit
-}
-
-$FileName = [IO.Path]::GetFileName($DatabaseFile)
-Write-Output "[Info]  Processing XProtect Behavioral Service Database ($FileName) ..."
-
-# MD5 Hash
-$MD5 = (Get-FileHash -LiteralPath "$DatabaseFile" -Algorithm MD5).Hash
-Write-Output "[Info]  MD5 Hash: $MD5"
-
-# SHA1 Hash
-$SHA1 = (Get-FileHash -LiteralPath "$DatabaseFile" -Algorithm SHA1).Hash
-Write-Output "[Info]  SHA1 Hash: $SHA1"
-
-# SHA256 Hash
-$SHA256 = (Get-FileHash -LiteralPath "$DatabaseFile" -Algorithm SHA256).Hash
-Write-Output "[Info]  SHA256 Hash: $SHA256"
-
-# Input Size
-$InputSize = Get-FileSize((Get-Item "$DatabaseFile").Length)
-Write-Output "[Info]  Total Input Size: $InputSize"
-
-# Count Rows of SQLite3 Database (w/ thousands separators)
-[int]$Count = (& $SQLite3 -readonly $DatabaseFile 'SELECT COUNT(*) FROM EVENTS')
-$Rows = '{0:N0}' -f $Count
-Write-Output "[Info]  Total Lines: $Rows"
-
-# Processing XPdb.db
+$FileName = [IO.Path]::GetFileName($LogFile)
+Write-Output "[Info]  Processing Background Task Management Dump File ($FileName) ..."
 New-Item "$OUTPUT_FOLDER\CSV" -ItemType Directory -Force | Out-Null
 New-Item "$OUTPUT_FOLDER\XLSX" -ItemType Directory -Force | Out-Null
 
-# EVENTS Table
+# MD5 Hash
+$MD5 = (Get-FileHash -LiteralPath "$LogFile" -Algorithm MD5).Hash
+Write-Output "[Info]  MD5 Hash: $MD5"
+
+# SHA1 Hash
+$SHA1 = (Get-FileHash -LiteralPath "$LogFile" -Algorithm SHA1).Hash
+Write-Output "[Info]  SHA1 Hash: $SHA1"
+
+# SHA256 Hash
+$SHA256 = (Get-FileHash -LiteralPath "$LogFile" -Algorithm SHA256).Hash
+Write-Output "[Info]  SHA256 Hash: $SHA256"
+
+# Input Size
+$InputSize = Get-FileSize((Get-Item "$LogFile").Length)
+Write-Output "[Info]  Total Input Size: $InputSize"
+
+# Count rows of CSV (w/ thousands separators)
+[int]$TotalLines = 0
+$Reader = New-Object IO.StreamReader "$LogFile"
+while($Reader.ReadLine() -ne $null){ $TotalLines++ }
+($Reader.Dispose())
+$Rows = '{0:N0}' -f $TotalLines | ForEach-Object {$_ -replace ' ','.'}
+Write-Output "[Info]  Total Lines: $Rows"
+
+# Count User IDs
+$Count = (Get-Content "$LogFile" | Select-String -Pattern "Records for UID" | Measure-Object).Count
+Write-Output "[Info]  $Count User ID's found"
+
+# Count Background Items (Item Records)
+$Total = (Get-Content "$LogFile" | Select-String -Pattern "^ #\d+:" | Measure-Object).Count
+Write-Output "[Info]  $Total Background Items found"
+
+# Background Items per User
+New-Item "$OUTPUT_FOLDER\Users" -ItemType Directory -Force | Out-Null
+$Objects = (Get-Content "$LogFile" -Raw) -split "`n`n`n" | Where-Object { $_ -match "========================" }
+ForEach ($Object in $Objects) {
+    $UID = $Object.Split("`n`n") | Select-String -Pattern "Records for UID" | ForEach-Object{($_ -split "\s+")[4]}
+    $Object | Out-File "$OUTPUT_FOLDER\Users\$UID.txt" -Encoding UTF8
+}
+
+# User ID's (UID)
+#  -2 = Appears to be a composite covering most Machgrount Items
+#   0 = root
+# 501 = primary admin user
+
+# List all UIDs
+# dscl . -list /Users UniqueID
+
+# Item Details
 
 # CSV
-& $SQLite3 -readonly -header -csv $DatabaseFile 'SELECT * FROM EVENTS' | Out-File "$OUTPUT_FOLDER\CSV\Untouched.csv" -Encoding UTF8
+$Results = [Collections.Generic.List[PSObject]]::new()
+ForEach($Object in $Objects)
+{
+    $UID = $Object.Split("`n`n") | Select-String -Pattern "Records for UID" | ForEach-Object{($_ -split "\s+")[4]}
+    $Items = $Object | ForEach-Object { $_ -split("`n`n") } | Where-Object { $_ -match "^ #\d+:" }
+
+    ForEach($Item in $Items)
+    {
+        $EmbeddedItems = ($Item.Split("`n`n") | Select-String -Pattern "^    #\d+:" | ForEach-Object { $_ -replace "^    " }) -join "`r`n"
+
+        $Line = [PSCustomObject]@{
+        "UID"               = $UID
+        "Item ID"           = $Item.Split("`n`n") | Select-String -Pattern "^ #" | ForEach-Object { $_ -replace ":.*" } | ForEach-Object { $_ -replace ".*#" }
+        "UUID"              = $Item.Split("`n`n") | Select-String -Pattern "UUID:" | ForEach-Object{($_ -split "\s+")[2]}
+        "Name"              = $Item.Split("`n`n") | Select-String -Pattern "  Name:" | ForEach-Object { $_ -replace ".*Name: " }
+        "Developer Name"    = $Item.Split("`n`n") | Select-String -Pattern "Developer Name:" | ForEach-Object { $_ -replace ".*Developer Name: " }
+        "Team Identifier"   = $Item.Split("`n`n") | Select-String -Pattern "Team Identifier:" | ForEach-Object { $_ -replace ".*Team Identifier: " }
+        "Type"              = $Item.Split("`n`n") | Select-String -Pattern "Type:" | ForEach-Object { $_ -replace ".*Type: " }
+        "Flags"             = $Item.Split("`n`n") | Select-String -Pattern "Flags:" | ForEach-Object { $_ -replace ".*Flags: " }
+        "Disposition"       = $Item.Split("`n`n") | Select-String -Pattern "Disposition:" | ForEach-Object { $_ -replace ".*Disposition: " }
+        "Identifier"        = $Item.Split("`n`n") | Select-String -Pattern "  Identifier:" | ForEach-Object { $_ -replace ".*Identifier: " }
+        "URL"               = $Item.Split("`n`n") | Select-String -Pattern "URL:" | ForEach-Object { $_ -replace ".*URL: " }
+        "Executable Path"   = $Item.Split("`n`n") | Select-String -Pattern "Executable Path:" | ForEach-Object { $_ -replace ".*Executable Path: " }
+        "Generation"        = $Item.Split("`n`n") | Select-String -Pattern "Generation:" | ForEach-Object { $_ -replace ".*Generation: " }
+        "Assoc. Bundle IDs" = $Item.Split("`n`n") | Select-String -Pattern "Assoc. Bundle IDs:" | ForEach-Object { $_ -replace ".*Assoc. Bundle IDs: " } | ForEach-Object { $_ -replace "\[ " } | ForEach-Object { $_ -replace " \]" }
+        "Bundle Identifier" = $Item.Split("`n`n") | Select-String -Pattern "Bundle Identifier:" | ForEach-Object { $_ -replace ".*Bundle Identifier: " }
+        "Embedded Item Identifiers" = $EmbeddedItems
+        "Parent Identifier" = $Item.Split("`n`n") | Select-String -Pattern "Parent Identifier:" | ForEach-Object { $_ -replace ".*Parent Identifier: " }
+        }
+
+        $Results.Add($Line)
+    }
+
+    $Results | Export-Csv -Path "$OUTPUT_FOLDER\CSV\BTM.csv" -NoTypeInformation -Encoding UTF8
+}
 
 # XLSX
-if (Test-Path "$OUTPUT_FOLDER\CSV\Untouched.csv")
+if (Test-Path "$OUTPUT_FOLDER\CSV\BTM.csv")
 {
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\Untouched.csv" -MaxLines 2)
+    if ((Get-Item "$OUTPUT_FOLDER\CSV\BTM.csv").Length -gt 0)
     {
-        $IMPORT = Import-Csv "$OUTPUT_FOLDER\CSV\Untouched.csv" -Delimiter ","
-        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\XLSX\Untouched.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Events" -CellStyleSB {
+        $IMPORT = Import-Csv "$OUTPUT_FOLDER\CSV\BTM.csv" -Delimiter ","
+        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\XLSX\BTM.xlsx" -NoHyperLinkConversion * -FreezePane 2,5 -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Background Items" -CellStyleSB {
         param($WorkSheet)
         # BackgroundColor and FontColor for specific cells of TopRow
-        $ColumnNumber = $WorkSheet.Dimension.End.Column
-        $ColumnName = (Get-ExcelColumnName $ColumnNumber).ColumnName
-        Set-Format -Address $WorkSheet.Cells["A1:$($ColumnName)1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-        # HorizontalAlignment "Center" of columns A-Q
-        $WorkSheet.Cells["A:$($ColumnName)"].Style.HorizontalAlignment="Center"
+        Set-Format -Address $WorkSheet.Cells["A1:Q1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+        # HorizontalAlignment "Center" of columns A-K and M-Q
+        $WorkSheet.Cells["A:K"].Style.HorizontalAlignment="Center"
+        $WorkSheet.Cells["M:Q"].Style.HorizontalAlignment="Center"
         }
     }
 }
 
-# SQL Query
-$SQL = 
-"
-SELECT 
-	dt AS 'DateTime',
-	violated_rule AS 'Bastion Rule',
-	exec_path AS 'Path',
-    exec_signing_id AS 'Identifier',
-    exec_team_id AS 'Team Identifier',
-    exec_sha256 AS 'SHA256',
-    CASE exec_is_notarized
-        WHEN 0 THEN 'No'
-        WHEN 1 THEN 'Yes'
-    END AS 'Notarized',
-    CASE reported
-        WHEN 0 THEN 'No'
-        WHEN 1 THEN 'Yes'
-    END AS 'Reported'
-FROM EVENTS
-"
-
-# Execute SQL Query
-$Results = @(& $SQLite3 -readonly -separator '**' $DatabaseFile $SQL |
-ConvertFrom-String -Delimiter '\u002A\u002A' -PropertyNames "DateTime","Bastion Rule","Path","Identifier","Team Identifier","SHA256","Notarized","Reported")
-
-# CSV
-$Output = [Collections.Generic.List[PSObject]]::new()
-ForEach($Record in $Results)
-{
-    $CreatedDateTime = $Record | Select-Object -ExpandProperty DateTime
-
-    $Line = [PSCustomObject]@{
-    "DateTime"        = (Get-Date $CreatedDateTime).ToString("yyyy-MM-dd HH:mm:ss")
-    "Bastion Rule"    = $Record."Bastion Rule"
-    "Path"            = $Record.Path
-    "Identifier"      = $Record.Identifier
-    "Team Identifier" = $Record."Team Identifier"
-    "SHA256"          = $Record.SHA256
-    "Notarized"       = $Record.Notarized
-    "Reported"        = $Record.Reported
-    }
-
-    $Output.Add($Line)
-}
-
-$Output | Export-Csv -Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -NoTypeInformation -Encoding UTF8
-
-# XLSX
-if (Test-Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv")
-{
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -MaxLines 2)
-    {
-        $IMPORT = Import-Csv "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_.DateTime -as [datetime] } -Descending
-        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\XLSX\XProtect-BehaviorService.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "XBS" -CellStyleSB {
-        param($WorkSheet)
-        # BackgroundColor and FontColor for specific cells of TopRow
-        Set-Format -Address $WorkSheet.Cells["A1:H1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-        # HorizontalAlignment "Center" of columns A-B and D-H
-        $WorkSheet.Cells["A:B"].Style.HorizontalAlignment="Center"
-        $WorkSheet.Cells["D:H"].Style.HorizontalAlignment="Center"
-        # ConditionalFormatting - Notarized
-        $LastRow = $WorkSheet.Dimension.End.Row
-        Add-ConditionalFormatting -Address $WorkSheet.Cells["G2:G$LastRow"] -WorkSheet $WorkSheet -RuleType 'Expression' 'NOT(ISERROR(FIND("Yes",$G2)))' -BackgroundColor $Green
-        Add-ConditionalFormatting -Address $WorkSheet.Cells["G2:G$LastRow"] -WorkSheet $WorkSheet -RuleType 'Expression' 'NOT(ISERROR(FIND("No",$G2)))' -BackgroundColor Red
-        }
-    }
-}
-
-# File Size (XLSX)
-if (Test-Path "$OUTPUT_FOLDER\XLSX\XProtect-BehaviorService.xlsx")
-{
-    $Size = Get-FileSize((Get-Item "$OUTPUT_FOLDER\XLSX\XProtect-BehaviorService.xlsx").Length)
-    Write-Output "[Info]  File Size (XLSX): $Size"
 }
 
 #endregion Analysis
@@ -548,111 +439,91 @@ if (Test-Path "$OUTPUT_FOLDER\XLSX\XProtect-BehaviorService.xlsx")
 
 #region Statistics
 
+Function Get-Statistics {
+
 # Stats
 New-Item "$OUTPUT_FOLDER\Stats" -ItemType Directory -Force | Out-Null
 
-if (Test-Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv")
+# Data Import
+$BTM = Import-Csv "$OUTPUT_FOLDER\CSV\BTM.csv" -Delimiter "," -Encoding UTF8
+
+# Count Login Items
+#$LoginItems = ($BTM | Where-Object { $_.Type -eq "login item (0x4)" } | Measure-Object).Count
+#Write-Output "[Info]  $LoginItems Login Item(s) found"
+
+# Count Extensions (Apple and Third-Party Extensions)
+#$Extension = ($BTM | Where-Object { $_."Bundle Identifier" -match "Extension$" } | Measure-Object).Count
+#Write-Output "[Info]  $Extension Extension(s) found"
+
+# Developer Name (Stats)
+$Total = ($BTM | Select-Object "Developer Name" | Measure-Object).Count
+if ($Total -ge "1")
 {
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -MaxLines 2)
-    {
-        $XBS = Import-Csv "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_.DateTime -as [datetime] }
-        
-        # Time Frame
-        $DateTime = $XBS | Select-Object DateTime
-        $StartDateTime = $DateTime | Select-Object -First 1 | Select-Object -ExpandProperty DateTime
-        $EndDateTime = $DateTime | Select-Object -Last 1 | Select-Object -ExpandProperty DateTime
-        Write-Output "[Info]  Log data from $StartDateTime UTC until $EndDateTime UTC"
-
-        # Bastion Rules
-        $Total = ($XBS | Select-Object "Bastion Rule" | Measure-Object).Count
-        $Count = ($XBS | Select-Object "Bastion Rule" -Unique | Measure-Object).Count
-        Write-Output "[Info]  $Count violated Bastion Rules found ($Total)"
-
-        # Signing Identifier
-        $Total = ($XBS | Select-Object "Identifier" | Measure-Object).Count
-        $Count = ($XBS | Select-Object "Identifier" -Unique | Measure-Object).Count
-        Write-Output "[Info]  $Count Signing Identifier found ($Total)"
-
-        # Team Identifier
-        $Total = ($XBS | Select-Object "Team Identifier" | Measure-Object).Count
-        $Count = ($XBS | Select-Object "Team Identifier" -Unique | Measure-Object).Count
-        Write-Output "[Info]  $Count Team Identifier found ($Total)"
-
-        # SHA256 --> VirusTotal-CLI.ps1
-        New-Item "$OUTPUT_FOLDER\TXT" -ItemType Directory -Force | Out-Null
-        $SHA256 = ($XBS | Where-Object { $_.SHA256 -match "^[A-Fa-f0-9]{64}$" } | Select-Object SHA256 -Unique | Sort-Object SHA256).SHA256
-        $SHA256 | Out-File "$OUTPUT_FOLDER\TXT\SHA256.txt" -Encoding UTF8
-
-        # Bastion Rule (Stats)
-        $Total = ($XBS | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object "Bastion Rule" | Select-Object @{Name='Bastion Rule'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Bastion-Rules.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Bastion Rules" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns B-C
-            $WorkSheet.Cells["B:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Identifier (Stats)
-        $Total = ($XBS | Where-Object {$_.Identifier -ne ""} | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object Identifier | Select-Object @{Name='Identifier'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Identifier.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Identifier" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns B-C
-            $WorkSheet.Cells["B:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Notarized (Stats)
-        $Total = ($XBS | Where-Object {$_.Notarized -ne ""} | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object Notarized | Select-Object @{Name='Notarized'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Notarized.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Notarized" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns A-C
-            $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Reported (Stats)
-        $Total = ($XBS | Where-Object {$_.Reported -ne ""} | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object Reported | Select-Object @{Name='Reported'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Reported.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Reported" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns A-C
-            $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
-            }
-        }
-
-        # Team Identifier (Stats)
-        $Total = ($XBS | Measure-Object).Count
-        if ($Total -ge "1")
-        {
-            $Stats = $XBS | Group-Object "Team Identifier" | Select-Object @{Name='Team Identifier'; Expression={if($_.Name){$_.Name}else{'N/A'}}},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Team-Identifier.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Team Identifier" -CellStyleSB {
-            param($WorkSheet)
-            # BackgroundColor and FontColor for specific cells of TopRow
-            Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns B-C
-            $WorkSheet.Cells["B:C"].Style.HorizontalAlignment="Center"
-            }
-        }
+    $Stats = $BTM | Group-Object "Developer Name" | Select-Object @{Name='Developer Name'; Expression={if($_.Name){$_.Name}else{'N/A'}}},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+    $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\DeveloperName.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Developer Name" -CellStyleSB {
+    param($WorkSheet)
+    # BackgroundColor and FontColor for specific cells of TopRow
+    Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+    # HorizontalAlignment "Center" of columns A-C
+    $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
     }
+}
+
+# Name (Stats)
+$Total = ($BTM | Select-Object Name | Measure-Object).Count
+if ($Total -ge "1")
+{
+    $Stats = $BTM | Group-Object Name | Select-Object @{Name='Name'; Expression={if($_.Name){$_.Name}else{'N/A'}}},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+    $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Name.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Name" -CellStyleSB {
+    param($WorkSheet)
+    # BackgroundColor and FontColor for specific cells of TopRow
+    Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+    # HorizontalAlignment "Center" of columns A-C
+    $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
+    }
+}
+
+# Name / Developer Name (Stats)
+$Total = ($BTM | Select-Object Name | Measure-Object).Count
+if ($Total -ge "1")
+{
+    $Stats = $BTM | Group-Object Name,"Developer Name" | Select-Object @{Name='Name'; Expression={ $_.Values[0] }},@{Name='Developer Name'; Expression={ $_.Values[1] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+    $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Name-DeveloperName.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Name - Developer Name" -CellStyleSB {
+    param($WorkSheet)
+    # BackgroundColor and FontColor for specific cells of TopRow
+    Set-Format -Address $WorkSheet.Cells["A1:D1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+    # HorizontalAlignment "Center" of columns A-D
+    $WorkSheet.Cells["A:D"].Style.HorizontalAlignment="Center"
+    }
+}
+
+# Type (Stats)
+$Total = ($BTM | Select-Object Type | Measure-Object).Count
+if ($Total -ge "1")
+{
+    $Stats = $BTM | Group-Object Type | Select-Object @{Name='Type'; Expression={if($_.Name){$_.Name}else{'N/A'}}},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+    $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Type.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Type" -CellStyleSB {
+    param($WorkSheet)
+    # BackgroundColor and FontColor for specific cells of TopRow
+    Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+    # HorizontalAlignment "Center" of columns A-C
+    $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
+    }
+}
+
+# Type Flags
+#    0x2  = App
+#    0x4  = Login Item
+#    0x20 = Developer
+#    0x40 = Spotlight
+#   0x800 = Quicklook
+# 0x10008 = Legacy Agent
+# 0x10010 = Legacy Daemon
+
+# 0x1  = User Item
+# 0x8  = Agent
+# 0x10 = Daemon
+
 }
 
 #endregion Statistics
@@ -661,6 +532,8 @@ if (Test-Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv")
 #############################################################################################################################################################################################
 
 #region Footer
+
+Function Footer {
 
 # Get End Time
 $endTime = (Get-Date)
@@ -678,13 +551,35 @@ Write-Host ""
 Stop-Transcript
 Start-Sleep 0.5
 
-# Reset Progress Preference
-$Global:ProgressPreference = $OriginalProgressPreference
+# MessageBox UI
+$MessageBody = "Status: BTM Analysis completed."
+$MessageTitle = "BTM-Analyzer.ps1 (https://lethal-forensics.com/)"
+$ButtonType = "OK"
+$MessageIcon = "Information"
+$Result = [System.Windows.Forms.MessageBox]::Show($MessageBody, $MessageTitle, $ButtonType, $MessageIcon)
 
-# Reset Windows Title
-$Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+if ($Result -eq "OK" ) 
+{
+    # Reset Progress Preference
+    $Global:ProgressPreference = $OriginalProgressPreference
+
+    # Reset Windows Title
+    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+    Exit
+}
+
+}
 
 #endregion Footer
+
+#############################################################################################################################################################################################
+#############################################################################################################################################################################################
+
+# Main
+Header
+Invoke-Processing
+Get-Statistics
+Footer
 
 #############################################################################################################################################################################################
 #############################################################################################################################################################################################
@@ -692,8 +587,8 @@ $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
 # SIG # Begin signature block
 # MIIrywYJKoZIhvcNAQcCoIIrvDCCK7gCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsCoI6ZDUMWXavzfMhQrwgfUO
-# x4SggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQU/YSu4YzPTRwU4FrYvgsZkinm
+# gF+ggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -895,33 +790,33 @@ $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
 # Z28gUHVibGljIENvZGUgU2lnbmluZyBDQSBSMzYCEQCMQZ6TvyvOrIgGKDt2Gb08
 # MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MCMGCSqGSIb3DQEJBDEWBBRti+ZTqQXrK+HW7YZ1hGuUK1wNBDANBgkqhkiG9w0B
-# AQEFAASCAgC94i48AEPML2hZZ3k5Ybj/atXTqSn1Ww6BbZcVBQm3S1k6Gxhb9nv5
-# O/aC2W0/385bJXnQAYj0Y8/VaSErVk8q8RbntJwAe4kuaugQ42YGzWQBCpmJ+WVF
-# As2YyBmNy0K2vWVkU+UGfyc69jtKCMJT11EnGztqI50yeu/QUwoscxe+vfxiY8tj
-# AHlCXFPLX3NFWSsJEN9Y+tv09RFgmWuskGziGLvRMmECmSpycaNVMLYub0QBnpng
-# Uqo1LX+J47htT66cf6Des7z1c4EWFHFT4k/2zUDelI/Vc1BH8ek4aV7wujdmdc+j
-# P9zzOpk4+tgrsp7M94T7A3OLaEHx6v7nIkgC21qxYoargD0o0yF1X49aVS/6kraX
-# 40J7zFGLyrMOar6yH9eAoZemhKw6AtPuwL392fJybIrE9iw5zMUEepRop935Dyvb
-# xvZIG+Bca6phG09w21KpAOUmdlOruFvPPqR3yt4W+dKJWXJBDS05gDYXAKyPKLMY
-# Kp4INSyFKcjXImMpvCCTMJxH/4hSCA+aBqpKlRmmU5vJ2rRoF12Cr+77txGzK/Rc
-# unVN0gKv2kxO1Q9t33Me4EJJ1ziLtNyPc6ZPUXzh5W1hGfZuF1ckou4HtopFzyJN
-# lnN3rBAQ/MmUFBSJdhS9NP+0BTKVU/OXxMCGdCpuEeTc4VwzoaI5qqGCAyMwggMf
+# MCMGCSqGSIb3DQEJBDEWBBQX/Y+rsQDd14pVTFL4xWWtiHoANzANBgkqhkiG9w0B
+# AQEFAASCAgBwo+FScPvDTAjGg27hQpGbvvZdd+rajKRUAcJ7nLgjdBoTbNoYi0sM
+# qT1yj0rxqNmpKrf0UpWhaK0GRaY3W0FQ5jJzhAmhDQPyedXwoBnQSPC3ExxcL99Z
+# CC8wyW/EatPFSPUNyu5tbbmTKv8q+i1TOHXTqYCYmlJbpAQ+PBRrsyltoxCE3V8c
+# 3tCDi+WdLYEbAONBB0IKL61dRUPOqtl9eVVz+iNW/q6FjhTR5IHSOBuEa4SIpD7Y
+# PueXVz8k6zZQE5JIzIt/RUF8qfTahfQ6NOyEx7yJGy2TDsOLsdngkgA9wtwfJl07
+# jMXSTQ1G1+4XzcaCKroOYaZdofAgSkBII/kMAIh6x95c7teS5fDhdvIrn4JLHsQj
+# /ckdbLOW3XgfgRZ94Cp+gTCLvtSOnfsLSqs1dlNkGq1CxAIKteC+d5nV3pswpIhY
+# 2I+G6dDMKbGXliAXw0vLrycxs3wxHelsm+tkGev99ezKjBK8NxauA3X0t+JcLlZL
+# D1f7bvwra9bkNRaed+wILAVqeUiP1kMA+MHIlG+ivjjGk4XSdJRwLqKRmRIifVS8
+# YmiO4dwiOoIyQugpfmXS93w/IK/lp4xPdqifyzdWrP/YIJY3a/UQiHDOtie1bYoc
+# BC7pWJIpvNU0qRYwkdoUNdBg9V018uCTgZRlZg6s5vdZGCGLUeWeoaGCAyMwggMf
 # BgkqhkiG9w0BCQYxggMQMIIDDAIBATBqMFUxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLDAqBgNVBAMTI1NlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgQ0EgUjM2AhEApCk7bh7d16c0CIetek63JDANBglghkgBZQMEAgIF
 # AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI1
-# MTEyMDA2MTc1MFowPwYJKoZIhvcNAQkEMTIEMFKUnXuxVW7METSIdzYaAY2Zs4qx
-# g9Y65+oP6yQwyB0qxRlLXVoVj57FFkI9aI2FNDANBgkqhkiG9w0BAQEFAASCAgBn
-# Sc7uc69fq6wueeKKYX8q604ZqKtLi57Vq/0Na6hYetiTBEoIsJDcfc+Njnl19+V+
-# ioNbBMkZXx2H2QDTC4ScEgV50x9+zd+HiNM/VG8iegLEMUrTXGTRymF134T2YPKy
-# 2QQopzs1ptkMILj+O6pT9q7hV8LPftPrHA/SvvROme6/WlqUDF6ySsIh8quw6WUA
-# 2nubjmJigHLTYhbo4YzzCJPY/sfpfCDQijfwomvXSYsRY7TjQsdHpMHgQ7pzKONd
-# /JeYcG9OnK7DhuUnbhTWt9Z4lGYS7hW6FqYORQ2+Ntd+yM+AZJkWa4r7U2fdtqyg
-# AxRHTKdubWkiZ4X/173Ux1ZNM4scZRBxM8KSscefxNxmBIAwCAGQUTDlMvf/rkno
-# 6qBplJOJ9KAptTfeyaeuRUY0PlycZg06LfptaIg8YHTRGPSGy8VwmZ2ycsk3AS2/
-# 4v/fc2e1MG6u/lvwU1pQGNQ06BpQdkPE1hjshzMkrL7vxldRRSRc9AbB4NR8VE2q
-# VFfrduCXCsqZA8XK2Qix9hZ1Iy6kRihG7qGrHQ0/iNyKF4IXrA+vaQTo9NZAJsLa
-# wYG+DhQd2rLCD/umJe3oy67ywESD9QcHRmR63dnBb4Sc/QvrvNvrUAiiohdWz2sq
-# gbNk91/OGD+9s98K4FijmSwPoWZTz+Eg+C3xfbUUXw==
+# MTEyMDA2MTcyNFowPwYJKoZIhvcNAQkEMTIEMOkGN7pSPYFF2mC4y5bEXrKtjdYK
+# XRML56LB919RGHuHvAlz0ooRLjUBYg3W90PhoTANBgkqhkiG9w0BAQEFAASCAgBE
+# eI4oXgagY31EJ0YFNLqI4MfGSof+LzxQFP7vzh6WhL+1pzV2QTgb6FUZX59FgGdT
+# q995FeTSQeH/glQ3SYvaQ9V+OaNTg2y45tZqnPloXstI6h9JeivLpyIK0zjC0XlM
+# Wv5RKjv1wK4TsRnkHqAAsjvwlPIF1qBk2hUnth9CX0nRGGfjNLAtRtMWztffutPy
+# SIkRP9ekK/+FsttFkn6RDv/3Ee+p9cn7WsfRrYtZJhsvC/DB8nvRst4bEs5t+QBd
+# 0Mv/jpbfAlDKH/vprxaohkl+lDzweKFxlJwGhamv2fOXV5OW8f+0iuyLll2p/LvA
+# 01UJZbDZUEn+GwpP1Z6AXOjzZ6FWJeZwcmnEhK37zKfFueb0NvHTWodFiYpQyDZz
+# 1t3T+GZvKp2lDkiXfpVfq1/vtDoRMXp2SGCjcuwjA8mme++7wZLMgg4kLnQjsfE2
+# mVG7HShAQ7LNZofxLpEvKgkQfVP/9Tihcl5P6VxcReub/RIfzv1VzlhC0ODt5Eog
+# imqn9zdW1Jz1ODVHqc6n1YAjp/SRcZ3Q7Bnn5thWmU5Y8OsHDdpR/xDPue1ZRWtB
+# W12TGNVerYZr7y0KQra8hEUHlL8RYL0lyUXn7bVgtXnYtioexAtwD5DILSKDA/pG
+# qJzHgy0f3l22E8CuPXv+noryv8wmqlxm6MRPl+DqeA==
 # SIG # End signature block
