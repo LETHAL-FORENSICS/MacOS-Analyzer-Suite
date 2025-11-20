@@ -72,6 +72,21 @@ You can specify the output directory with following command:
 ![Bastion-Rules](https://github.com/user-attachments/assets/a5664093-eda5-4dea-bea3-e2dee857e8ac)  
 **Fig 7:** Bastion-Rules.xlsx (Stats)  
 
+![BTM-Analyzer](https://github.com/user-attachments/assets/eb989228-155f-4ea9-a2a0-3e2147f50386)  
+**Fig 8:** BTM-Analyzer (Background Task Management)  
+
+![BTM-XLSX](https://github.com/user-attachments/assets/872279fa-e388-44a1-ab8b-e23a971096b8)  
+**Fig 9:** BTM.xlsx  
+
+![DSStore-Analyzer](https://github.com/user-attachments/assets/8aa2f66b-3452-4df4-96dc-d889c0230237)  
+**Fig 10:** DSStore-Analyzer  
+
+![Storyline-Analyzer](https://github.com/user-attachments/assets/4850f2a3-a6d1-4924-b4b8-5067b3832e33)  
+**Fig 11:** Storyline-Analyzer  
+
+![Storyline-SQLite](https://github.com/user-attachments/assets/4bb3d24f-6580-494b-a767-4b2720796994)  
+**Fig 12:** Storyline-Analyze.db (SQLite database w/ Views)  
+
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.  
 
