@@ -75,6 +75,9 @@ You can specify the output directory with following command:
 ![BTM-Analyzer](https://github.com/user-attachments/assets/eb989228-155f-4ea9-a2a0-3e2147f50386)  
 **Fig 8:** BTM-Analyzer (Background Task Management)  
 
+> [!TIP]
+> ```Aftermath Collection\Persistence\btm.txt``` or ```sudo sfltool dumpbtm > ~/Desktop/btm.txt```  
+
 ![BTM-XLSX](https://github.com/user-attachments/assets/872279fa-e388-44a1-ab8b-e23a971096b8)  
 **Fig 9:** BTM.xlsx  
 
