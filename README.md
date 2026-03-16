@@ -9,7 +9,9 @@ A collection of PowerShell scripts for analyzing macOS Forensic Artifacts
   * Aftermath File Timeline &#8594; Timeline-Analyzer
   * BTM dump file(s) &#8594; BTM-Analyzer
   * .DS_Store file(s) &#8594; DSStore-Analyzer
+  * File Hash Lists &#8594; VirusTotal-Analyzer
   * FSEvent Logs &#8594; FSEvents-Analyzer
+  * KnockKnock Results &#8594; KnockKnock-Analyzer (incl. VirusTotal-Analyzer)
   * LSQuarantine database file(s) &#8594; Quarantine-Analyzer
   * TCC database file(s) &#8594; TCC-Analyzer
   * XProtect Behavioral Service database file(s) &#8594; XProtect-Analyzer
@@ -75,6 +77,9 @@ You can specify the output directory with following command:
 ![BTM-Analyzer](https://github.com/user-attachments/assets/eb989228-155f-4ea9-a2a0-3e2147f50386)  
 **Fig 8:** BTM-Analyzer (Background Task Management)  
 
+> [!TIP]
+> ```Aftermath Collection\Persistence\btm.txt``` or ```sudo sfltool dumpbtm > ~/Desktop/btm.txt```  
+
 ![BTM-XLSX](https://github.com/user-attachments/assets/872279fa-e388-44a1-ab8b-e23a971096b8)  
 **Fig 9:** BTM.xlsx  
 
@@ -86,6 +91,15 @@ You can specify the output directory with following command:
 
 ![Storyline-SQLite](https://github.com/user-attachments/assets/4bb3d24f-6580-494b-a767-4b2720796994)  
 **Fig 12:** Storyline-Analyze.db (SQLite database w/ Views)  
+
+![KnockKnock-Analyzer](https://github.com/user-attachments/assets/47456643-f5a2-4c76-aedf-2d6f69e83122)  
+**Fig 13:** KnockKnock-Analyzer (incl. VirusTotal-Analyzer)  
+
+![VirusTotal-Analyzer](https://github.com/user-attachments/assets/e93b8a32-70c2-43aa-8f55-aa6eae5cf133)  
+**Fig 14:** VirusTotal-Analyzer (Standalone)  
+
+![VirusTotal-Report](https://github.com/user-attachments/assets/24a5f964-38ad-41be-af21-a2082e1fb46a)  
+**Fig 15:** VirusTotal-Report.xlsx  
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.  
@@ -99,3 +113,4 @@ Feel free to send comments and feedback to [github@lethal-forensics.com](mailto:
 [DB Browser for SQLite](https://sqlitebrowser.org/dl/)  
 [Arsenal Image Mounter (AIM)](https://arsenalrecon.com/products/arsenal-image-mounter)  
 [APFS for Windows by Paragon Software](https://www.paragon-software.com/home/apfs-windows/)  
+[VirusTotal CLI](https://github.com/VirusTotal/vt-cli)  

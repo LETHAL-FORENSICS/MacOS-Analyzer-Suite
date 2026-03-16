@@ -4,7 +4,7 @@
 # @copyright: Copyright (c) 2025 Martin Willing. All rights reserved. Licensed under the MIT license.
 # @contact:   Any feedback or suggestions are always welcome and much appreciated - mwilling@lethal-forensics.com
 # @url:       https://lethal-forensics.com/
-# @date:      2025-11-20
+# @date:      2026-03-16
 #
 #
 # ██╗     ███████╗████████╗██╗  ██╗ █████╗ ██╗      ███████╗ ██████╗ ██████╗ ███████╗███╗   ██╗███████╗██╗ ██████╗███████╗
@@ -28,7 +28,7 @@
 #
 #
 # Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 5.1 (5.1.19041.6456)
-# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.4
+# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.5
 #
 #
 #############################################################################################################################################################################################
@@ -342,7 +342,7 @@ Write-Output "[Info]  SHA256 Hash: $SHA256"
 $InputSize = Get-FileSize((Get-Item "$LogFile").Length)
 Write-Output "[Info]  Total Input Size: $InputSize"
 
-# Count rows of CSV (w/ thousands separators)
+# Count rows of TXT (w/ thousands separators)
 [int]$TotalLines = 0
 $Reader = New-Object IO.StreamReader "$LogFile"
 while($Reader.ReadLine() -ne $null){ $TotalLines++ }
@@ -367,9 +367,9 @@ ForEach ($Object in $Objects) {
 }
 
 # User ID's (UID)
-#  -2 = Appears to be a composite covering most Machgrount Items
-#   0 = root
-# 501 = primary admin user
+#  -2 = Appears to be a composite covering most Background Items
+#   0 = Root
+# 501 = Primary Admin User
 
 # List all UIDs
 # dscl . -list /Users UniqueID
@@ -588,8 +588,8 @@ Footer
 # SIG # Begin signature block
 # MIIrywYJKoZIhvcNAQcCoIIrvDCCK7gCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUOpZyU2AmLj6299THFqk4AN3P
-# Mv6ggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeaXfYn6IjFEEB8gT4ibf9hi/
+# sdWggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -791,33 +791,33 @@ Footer
 # Z28gUHVibGljIENvZGUgU2lnbmluZyBDQSBSMzYCEQCMQZ6TvyvOrIgGKDt2Gb08
 # MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MCMGCSqGSIb3DQEJBDEWBBRj3baSlfpetKAlhOmmn5D0lLt+3jANBgkqhkiG9w0B
-# AQEFAASCAgAIMzJbj6ZweU6PRfKHCady2ptfDQvVOl0ZjAacisRBR+hetgcMX40u
-# C4PJBmUei/VXI4w8BbDd6CE0zqlVV3kJfoN8xbyEbK9aAi3q6+yhEISLUWoFk2s9
-# QrjjMP6+jpSMpid0QRXmAlKRTms48bGjzdBsWy4d4IjQS22tFXr2pjaqCPp0F+DN
-# 8tRPU2tWwmmINDcg9A2MxVrioKUZ2g/YSdIXRkuFh08iVLvySDkcaDyqHPgoPL2G
-# 1c/63VYhFnyVx6OviBxCK+Q4G2iZGacBX3UScZSwiL0WsW/A1hvTg21gFlvc1qTP
-# VW/CmKf4tTPKKH23LSG1RUGY+AWxFkvYBoldkZ1LJl5Z9njmR362inisNjCbk1bY
-# XaEvpuEQA1sOllpVq0tEC1c7BhKZnotX8+YN722RX+rS6iFwhY+2McQKrZGgBjOh
-# lN5WR5yG8faBvM/qp4QSLzJI6OcT0/zjQX335uizEvgd0suBmU0gYd7CJxh0fJsf
-# Iac2uTgQkNNwnoPaqFw7j5Va2960BVtpvO5C+/mF31kEgKMESkHC9LRaSP1/L1+D
-# TdfL3/IjupdLWkpNPtzZS08lrKjbEskWYC2uXO+swjnENIyonpSDI4S5U4Tgq2xg
-# Ah0EBy1o3Q1MROgZmNw/astxosEwnHud6wTcSCy24g/8Rk6Py9WCsaGCAyMwggMf
+# MCMGCSqGSIb3DQEJBDEWBBS+txLCjf7/xTkouF4j0dLGvCUXyzANBgkqhkiG9w0B
+# AQEFAASCAgB79BbH6eB1xjCfGmeDb5FSmbItakPMHqeIjtNQI1vji3qCj8GId5Eo
+# +YoXhGGVaVfB6c+TdScqUpkLCYU0XqgHPZzjbI9X91LhiPBh1P6BBW3Gx34FqVCs
+# OqyOKy/nGjbSaPB0Hl7LxuGUTcgxJmDFYjTdZMtzAycyzwGhq5wfHm7ssTUK2xKs
+# uhAItkBwjb1nYB5gW6GHWOdK1kZBkIaYXq3nauSCgTXHqxjLHFi2lte1BB9YvBGZ
+# v6kTz4qM8a8KBv0x5QQ3WMI2sWqOuRVkgc9ZNQh5REgAVgllhtezAppCMDBan0L4
+# pyL7S47K3G9MKMDbSmbz93B4IL0oRbHpp6z5+NWsHCoZuJlscuDe4ByLFMwTmTzw
+# pHJla5ycTZTg+bCLtatO2IAmHYim4A7WLoSGySbYuu7QgRpXrfyEQhOWeFPiVYa9
+# wnKoJj3G5Emd2766Lod8GQsHGj2YuLgrbHTQ5IP8zSONV13XHFLXTCIWWt3YSJi6
+# kWRZ71+2gd3Z8PrHQs5oCwVicpA5UQCO8JaBwlu0dO+XLnk2NtN2W5yDwhECR2xv
+# ZzsU11uyvBGpndiVuigi0PmbbV+fjcUqWWqcPfWlLdWrGD5iCfY8tI6HVkvU3G3s
+# 7CZ/3aaBBSzX6QJT85BjI1Zj33yB1Si7Ta/GuNFoc4APzwJyGFhS0KGCAyMwggMf
 # BgkqhkiG9w0BCQYxggMQMIIDDAIBATBqMFUxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLDAqBgNVBAMTI1NlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgQ0EgUjM2AhEApCk7bh7d16c0CIetek63JDANBglghkgBZQMEAgIF
-# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI1
-# MTEyMDA2NTgzNFowPwYJKoZIhvcNAQkEMTIEMIrf3XLNVAUG2kct9US1UXLohH7R
-# UPhIrZijiPcCpGkP8uNbja9ZOp24j9Ivg0+RvDANBgkqhkiG9w0BAQEFAASCAgDE
-# V2TkyhF5OkB4N0i8ZW8okqH5nTCVszwOYhpAjm9LYAQ5jHnTlYvMFsvVF4r97txT
-# MtROjmlQ3+Y2/vq5HnmKcaKLuCaH6klz12mVEe8dZjsjBv9MduGNwov3g6LYnxWS
-# /92CVjt7HHraon+DLRWsc/j0IVWVSI9GzxKF4Vjd4OtA+1aYkL/kWbYr738Fxbpr
-# x1cwLR9esBTsLad5eiYmwBHz3Ok4HGUBWi7sF/Q4HuVneNZiQtWLRLpa0GOpaVK6
-# j+VFqe8fNal/X7f8T7+NCyTMlCFh48bR10vDAZzOnmOskk7Vq6g5YzFQVZFlhqRp
-# vRViVrOcGwurWy0LX7y8JtZAaDgYBfLOzyfN3BFZt1rWP0W1x8UNrUWtSl7+wqrv
-# +a42s8MaMVo2Rq6pB4TYiuo4KZYERIcvn3bladIThdGZKAnGBX/PvhhRAcZO0eB0
-# jNIJHIE4JrsFO+797wLXdCZv5tRtdStJy53k3/SCgkUhbgLidEGCtSe1pCydAS1V
-# 6vmosTbdICamH63pQv3cv4q8uO/HybUz0nxVScNI63eTl5mJDVs4DWMh7FLlTE4L
-# ae/GAHKR/kWAOz+Vj0OBzRMg6o5D+KGgArHcSDBg7eeixHdmbiJEmOe5KdKBgFUv
-# A6MLTQx9Ji32lMl6PDJ1DxVQ6jH/lq9SixTwZR+8YQ==
+# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI2
+# MDMxNjA2NDQ1NFowPwYJKoZIhvcNAQkEMTIEMOGdnsWwhLxaeXThoy/6alNbbsnf
+# PDFGXa+6xj0NMBN4e7c8hTVJZyuHglibRp2pyjANBgkqhkiG9w0BAQEFAASCAgBm
+# 9+SG0SHlaOcv7TPgLO9JtEwjfanuAY5W72BBohhM9GvLVqTtPMgAS9I9HLIWmb58
+# NGBb+zpQs4UbOZcuY9bohM+JuOttBxjt8/720cPBODMR0HMdE466Vno4CDixRQgA
+# HTAYhY2kfSBtz3xBLRNxlk/xMyjEMGzo2tvcnu9QzLZLyNTea+nxDSyJtj1KeQbe
+# 66uCMzv0ajHSNq38EK9w+6M+aPkKNsk8GY3XInJ3mAaMaFro64eO7rks6xfDHNQi
+# mB16XHoQZTZxVTA6rIuHbCR+UhVRhx5k8/vgr35iMBeFYDxU+OwRBaeMSXjduwAL
+# yiJYlQMeEHhqg2Mp0vWukfQ8G4qLlhOthQovC2qOHDUZMI/+exQRIqNYVZcY/RJ4
+# 76ZYQPuwC1bJaog8oTBgn+Io5LNGHHZuz0gB/4CHYeqzlSMDAEZZBlPLu0e9LyVY
+# /qxvXECuns3a1cdd5/J4r8LsY/MD6T7rPJbKm+sya7Du/6/JXWX1ISrNIz71le20
+# +JnERjhP2hxDU7jazSnqVusDnCXDued3QmISesvWahlFTgVAd7kXI2v9IY1bDZL/
+# zj7Ls/R/yck/y3C4tEvq4SfVilw64lKm2fbFwwtLuU+qBB1dt42LUSLnMfzB81xO
+# T3dxWkqlMtR8aH5U9barGvXi31r+ACoCsKYFLGvM4Q==
 # SIG # End signature block

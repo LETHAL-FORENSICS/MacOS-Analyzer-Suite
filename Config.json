@@ -7,5 +7,13 @@
             "BackgroundColor": "50,60,220",
             "FontColor": "White"
         }
+    ],
+    "VirusTotal": [
+        {
+            "Name": "VirusTotal CLI - API Key",
+            "URL": "https://www.virustotal.com/#/join-us --> Join the community for free",
+            "Note": "Please insert your API Key here (Default: api_key)",
+            "APIKey": "api_key"
+        }
     ]
 }

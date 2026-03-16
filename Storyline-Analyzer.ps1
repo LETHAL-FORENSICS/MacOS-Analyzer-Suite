@@ -1,10 +1,10 @@
 ﻿# Storyline-Analyzer v0.1
 #
 # @author:    Martin Willing
-# @copyright: Copyright (c) 2025 Martin Willing. All rights reserved. Licensed under the MIT license.
+# @copyright: Copyright (c) 2026 Martin Willing. All rights reserved. Licensed under the MIT license.
 # @contact:   Any feedback or suggestions are always welcome and much appreciated - mwilling@lethal-forensics.com
 # @url:       https://lethal-forensics.com/
-# @date:      2025-11-20
+# @date:      2026-03-16
 #
 #
 # ██╗     ███████╗████████╗██╗  ██╗ █████╗ ██╗      ███████╗ ██████╗ ██████╗ ███████╗███╗   ██╗███████╗██╗ ██████╗███████╗
@@ -34,7 +34,7 @@
 #
 #
 # Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 5.1 (5.1.19041.6456)
-# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.4
+# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.5
 #
 #
 #############################################################################################################################################################################################
@@ -298,7 +298,7 @@ Write-Output ""
 
 # Header
 Write-Output "Storyline-Analyzer v0.1 - Automated Forensic Analysis of Aftermath Storyline for DFIR"
-Write-Output "(c) 2025 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
+Write-Output "(c) 2026 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
 Write-Output ""
 
 # Analysis date (ISO 8601)
@@ -1075,8 +1075,8 @@ Footer
 # SIG # Begin signature block
 # MIIrywYJKoZIhvcNAQcCoIIrvDCCK7gCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUA+BQ1nnCOQfGz6C764JWlvD8
-# KduggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUyGtjcAeB8kt5c812MHYmjpv0
+# HzeggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -1278,33 +1278,33 @@ Footer
 # Z28gUHVibGljIENvZGUgU2lnbmluZyBDQSBSMzYCEQCMQZ6TvyvOrIgGKDt2Gb08
 # MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MCMGCSqGSIb3DQEJBDEWBBTHeM1d9bTE1nTEqb0acgi96waHFDANBgkqhkiG9w0B
-# AQEFAASCAgBEbL2BSs0otEHDWFdps9ZjUfiDc+fyD8X5SCAjiNLY5A/jhFpVQ2da
-# nY6e2zhk6DtqDlJti1JgWjsv+DxpxI4/cP3FKLjmljImUn9yDKtdpTo6AXVeQX3n
-# VZYiCR0nWBBmlLV78TwN8WI0bIJtiSrbbNjnqTcytCIhCmq/xJzEdZr02tWWMWbj
-# 3pxYRFPaB9yUqcaFjB+hdb0CmYyygWPHoXRFYAH/5DTrWkYxAtas9AM00fb9rAlu
-# iOXScFJF2L1+granFbiGQ2P9QJlCQ2JSnVLSJnsLWAEutkbkiuoVyMdZ8wKKim3a
-# xG5BSphnkouBZ11ZQHuR6nyWhLNJR/Z9seYGzWi4FPe2cnzKsCDnIuZI91H4eWJg
-# 1UN73VKRDh61vLcCefuPl9tdWyMEXKkoqMq1kTxB4VpGBZweKEC3fvITZNAJEv7L
-# h8SWDFtz9sQoB6bIjy/ZKtr/Zf6NBIwatU7XMuz7cu6EU8u2MBvXhEIDzNzp5Rwk
-# 7Qf+Z4uX4baWIfe0Ve/nUyk7VMKr+QSm71+KWuqwGu/EYyt10L4fMcOsLemlON3J
-# SWK/jahfqOx3MhRnCi3UHC7igQb5jF1GRXeSp8bwmEikh8KbktWl8Xm88tyoujpk
-# zv05Xa8oSBt9S2GpRzeYmzdA9fhqe3ixJVRFlb4cPXC8Z5phJLyiD6GCAyMwggMf
+# MCMGCSqGSIb3DQEJBDEWBBRGcJPf6HmXPOmhN6Iiq4ZRKEleyjANBgkqhkiG9w0B
+# AQEFAASCAgBGkTHwAcPe8105EKTk0bDLUGx8OpQU4mSQGC009fYXHoMdRSWOFpFv
+# tDAZHpA/zC+AMYrIG5rPtJstGFCoyFYrfexkANvokQfjDoISY1llRKOwycmcNHfi
+# rX4SuPPXKYRzTjWd5mBvxzf3ZlEMZreYJgeNppCmaiQHqXxJSXAPdg0m2dXaO6LD
+# 9BE75ArMWJfPL0z4WT51Fb+HBvVjw3TfUqM4u8hejl/Hp/EwgdzwiJBenV+sCDMm
+# N705nS5tkmMXilx+h3Mg5lOYtw6I2stLh3Js0ZokFxFDJpc59pGYzab8cj7w2tq8
+# LepLe+U0oQEGtFy1N5WB7ZojZIXgd+RVgeh5Fvqh5VXCvd5kQLh3B/wKQX/P9K/C
+# 2DeYDAV1YpaDTTjVAxwLaQR+4PoO2noE4TjJV8EHbiZYoN9h/6gdgFynFuWC0xLP
+# wZvFcKbSn6RqFscyNsG7KailEa9kFt0DOFkBratSL/hmkaKpaEaPk6dPaFFKzvTW
+# TXAy3apYhgvtIt6AxDaPPmqwa0Fc1gbFiPtxC+2OKg1wjO8wZYYN/TGxtNV07wMZ
+# QC9BEdUZCbvbsqGKUrhoiqqYz2Mo4Tt4EACagLNC3R9WYwWqzaglK65FrcCaejD6
+# 5v2QkyYXbagdIhO/0+OKUVb/7p2rHrtnEXdpfawgXonAglplHvgGjaGCAyMwggMf
 # BgkqhkiG9w0BCQYxggMQMIIDDAIBATBqMFUxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLDAqBgNVBAMTI1NlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgQ0EgUjM2AhEApCk7bh7d16c0CIetek63JDANBglghkgBZQMEAgIF
-# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI1
-# MTEyMDA2MTc0MFowPwYJKoZIhvcNAQkEMTIEMKVv0BFnVEtzx5eB0OJwHPP5lfzA
-# r0UkzSbSCrvlkG1AJG6JoH8cwQ1Dyf8vtxEizjANBgkqhkiG9w0BAQEFAASCAgAW
-# AOl56LfaqOE7OUKyqV57hr15aALuWYfBQ+zHTeooTo5twYan+LlrTWCEPfn2uQQF
-# 0ElWshm87PLGcqCwZLN9y4/tvC0ZuvMYg9kRchYGFZ3t3kVMDRocuSyFNjxV5dqf
-# Xr06+6i09TsGxXE/etOZzljbt70NlsMRI7HJbtiT+3MK7ge0kXRkCg5qBpOCKs19
-# CBLSjFBgPZBYmZrF/OHwExuPLJHvckZySt9upQnNRxp339IH5lXadr2/G49UfIT8
-# IPPIfCQYcw2xuyyo+wpkg4vZZamTRojg/mb+Kyyb23MOotlyU1V9N7Muib5wt9pp
-# oKApLX0sEo2LFpybrG1qceAGQMz98vUGj209P8M2s6jyWrPkY526ZNXbl+y3Fw/1
-# mcE1CETok3KCfHZ8q9QGtb4V6Ff6FLkkvGy6OI9fiE8lBqRusC9e+Vab1sh4lAiw
-# F/hKVajNHBnmRmOI6BQE4Yce7nhriBS2WW5YutvezxzbEVt7SGvmB78du8cDPkNl
-# 25XaxMSYBemSnW3pAH1ZkvhG4B6W3H5RXjBriu8teXCFKItPrlC1RxEUaG0MbcL7
-# WatkH5n5Wmp43bbxey/8FstxT3Vu44cPVRXItr7HUPVuDFPtJk5LYYQ3P4I6Y6zw
-# JN/OE+csj7WH4oumQ3PHRcs17bH9OMDUYBgpEaCjZA==
+# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI2
+# MDMxNjA2NDUxMVowPwYJKoZIhvcNAQkEMTIEMNDYjBM5wyKd6/YdexboiMEevao7
+# pRn7OiMFnmzF2jXSwFUajcFOnBu2NRZ/Gxb7DDANBgkqhkiG9w0BAQEFAASCAgBB
+# QDbMtp/jX/4rtQ+UozMj21dH6Rfqh1/ko3XL6VTTNreO70WcjIc+mRPw6F5CjKkq
+# wSIymKYA4j7+rS4x8HW3z0le1LRgMIjZZErFSGWZb483WB36TSC8nVfkhLJ3umG8
+# lyaos+hXVSa24DPIVaA3Up2Vk22AhqtDWNnbt2pHc20IP0Q2DSkPRwUU45OfXK1k
+# Iusro2o1Xs2wEBPODPdSfMbHGJ/eGtNENNicHl+4Y0PU+lRCJgOw8QHKvpdlcu54
+# Yj2TO9uqtDj1vXvmKdp3TzjDeErqND02RHfFVL0RUosKPaZyG/AkGlC1Yunirft1
+# Sw+4L8PyaCJ0PolffFoEetO/JAp38/4s/71heYbaXJzGAm7LnxMnvvka94JvKuaR
+# l8JhdP7HnRzs/Peq0LrnKjgR/iUdt386KOev+Wk0h+e9vWUpC4B51t2QB6aeFfu3
+# WGlRERqE4OufmClF0LKN5B8sw59tS7LPwiWKwh+Ic7QiydcDo1B3U+ObSVNJa/vt
+# s/OS2qKDhvYXC6n2mzuzNFlcOIhWtdpl006PSf+BcXeGA1zKVkhBjByelzvlLmvA
+# i2NTNQJPHHR5sSx9Rez/JuVPDCxXVksDYeAU+25eulT5sZSSztk2Z0wEGWT1yw4U
+# I5cfgoBhMes71bI/EPVtmly3hZ9b7R78P2jrWyJyyA==
 # SIG # End signature block

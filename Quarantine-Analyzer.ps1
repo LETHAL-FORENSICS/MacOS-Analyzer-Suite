@@ -1,10 +1,10 @@
-﻿# Quarantine-Analyzer v0.1
+﻿# Quarantine-Analyzer v0.2
 #
 # @author:    Martin Willing
-# @copyright: Copyright (c) 2025 Martin Willing. All rights reserved. Licensed under the MIT license.
+# @copyright: Copyright (c) 2026 Martin Willing. All rights reserved. Licensed under the MIT license.
 # @contact:   Any feedback or suggestions are always welcome and much appreciated - mwilling@lethal-forensics.com
 # @url:       https://lethal-forensics.com/
-# @date:      2025-11-20
+# @date:      2026-03-16
 #
 #
 # ██╗     ███████╗████████╗██╗  ██╗ █████╗ ██╗      ███████╗ ██████╗ ██████╗ ███████╗███╗   ██╗███████╗██╗ ██████╗███████╗
@@ -29,9 +29,13 @@
 # Release Date: 2025-11-10
 # Initial Release
 #
+# Version 0.2
+# Release Date: 2025-11-28
+# Fixed: Minor fixes and improvements
+#
 #
 # Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 5.1 (5.1.19041.6456)
-# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.4
+# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.5
 #
 #
 #############################################################################################################################################################################################
@@ -39,7 +43,7 @@
 
 <#
 .SYNOPSIS
-  Quarantine-Analyzer v0.1 - Automated Forensic Analysis of macOS LSQuarantine database for DFIR
+  Quarantine-Analyzer v0.2 - Automated Forensic Analysis of macOS LSQuarantine database for DFIR
 
 .DESCRIPTION
   Quarantine-Analyzer.ps1 is a PowerShell script utilized to simplify the analysis of the macOS LSQuarantine database.
@@ -173,7 +177,7 @@ else
 
 # Windows Title
 $DefaultWindowsTitle = $Host.UI.RawUI.WindowTitle
-$Host.UI.RawUI.WindowTitle = "Quarantine-Analyzer v0.1 - Automated Forensic Analysis of macOS LSQuarantine database for DFIR"
+$Host.UI.RawUI.WindowTitle = "Quarantine-Analyzer v0.2 - Automated Forensic Analysis of macOS LSQuarantine database for DFIR"
 
 # Check if the PowerShell script is being run with admin rights
 if (!([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
@@ -317,7 +321,7 @@ if(!($Path))
         [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
         $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
         $OpenFileDialog.InitialDirectory = $InitialDirectory
-        $OpenFileDialog.Filter = "LSQuarantine Database|lsquarantine_*|All Files (*.*)|*.*"
+        $OpenFileDialog.Filter = "Quarantine Database|lsquarantine_*|All Files (*.*)|*.*"
         $OpenFileDialog.ShowDialog()
         $OpenFileDialog.Filename
         $OpenFileDialog.ShowHelp = $true
@@ -362,8 +366,8 @@ Write-Output "$Logo"
 Write-Output ""
 
 # Header
-Write-Output "Quarantine-Analyzer v0.1 - Automated Forensic Analysis of macOS LSQuarantine database for DFIR"
-Write-Output "(c) 2025 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
+Write-Output "Quarantine-Analyzer v0.2 - Automated Forensic Analysis of macOS LSQuarantine database for DFIR"
+Write-Output "(c) 2026 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
 Write-Output ""
 
 # Analysis date (ISO 8601)
@@ -432,7 +436,7 @@ if (!(Test-Path "$($SQLite3)"))
 }
 
 $FileName = [IO.Path]::GetFileName($DatabaseFile)
-Write-Output "[Info]  Processing LSQuarantine Database ($FileName) ..."
+Write-Output "[Info]  Processing Quarantine Database ($FileName) ..."
 
 # MD5 Hash
 $MD5 = (Get-FileHash -LiteralPath "$DatabaseFile" -Algorithm MD5).Hash
@@ -484,7 +488,7 @@ if (Test-Path "$OUTPUT_FOLDER\CSV\Untouched.csv")
 $SQL = 
 "
 SELECT
-    DATETIME(LSQuarantineTimeStamp + 978307200,'UNIXEPOCH') AS 'DownloadTime', -- NSDate (Mac Epoch)
+    DATETIME(LSQuarantineTimeStamp + 978307200,'UNIXEPOCH') AS 'QuarantineTime', -- NSDate (Mac Epoch)
     LSQuarantineEventIdentifier AS 'Event Identifier',
 	LSQuarantineAgentName AS 'Agent Name',
 	LSQuarantineAgentBundleIdentifier AS 'Bundle Identifier',
@@ -492,35 +496,49 @@ SELECT
     LSQuarantineOriginURLString AS 'Origin URL',
     CASE LSQuarantineTypeNumber 
 		WHEN 0 THEN 'WebDownload'
-        WHEN 1 THEN 'OtherDownload'
-        WHEN 2 THEN 'EmailAttachment'
-        WHEN 3 THEN 'InstantMessageAttachment'
+        WHEN 1 THEN 'OtherDownload' -- Xcode
+        WHEN 2 THEN 'EmailAttachment' -- Apple Mail
+        WHEN 3 THEN 'InstantMessageAttachment' -- iChat
         WHEN 4 THEN 'CalendarEventAttachment'
         WHEN 5 THEN 'OtherAttachment'
+		WHEN 6 THEN 'AirDrop'
+		WHEN 7 THEN 'OtherApp'
 	END AS 'Type Number',
     LSQuarantineSenderName AS 'Sender Name',
     LSQuarantineSenderAddress AS 'Sender Address'
 FROM LSQuarantineEvent
 "
 
+# LSQuarantineTypeNumber (SANS FOR518 Poster)
+# 0 - Web Browser
+# 1 - Xcode
+# 2 - Apple Mail
+# 3 - iChat
+# 6 - AirDrop
+# 7 - Other App (e.g. Keka)
+
+# LSQuarantine.h
+# https://github.com/phracker/MacOSX-SDKs/blob/master/MacOSX10.6.sdk/System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Headers/LSQuarantine.h
+# Type (WebDownload|OtherDownload|EmailAttachment|InstantMessageAttachment|CalendarEventAttachment|OtherAttachment) --> pretty old (2008)
+
 # Execute SQL Query
 $Results = @(& $SQLite3 -readonly -separator '**' $DatabaseFile $SQL |
-ConvertFrom-String -Delimiter '\u002A\u002A' -PropertyNames "DownloadTime","Event Identifier","Agent Name","Bundle Identifier","Data URL","Origin URL","Type Number","Sender Name","Sender Address")
+ConvertFrom-String -Delimiter '\u002A\u002A' -PropertyNames "QuarantineTime","Event Identifier","Agent Name","Bundle Identifier","Data URL","Origin URL","Type Number","Sender Name","Sender Address")
 
 # CSV
 $Output = [Collections.Generic.List[PSObject]]::new()
 ForEach($Record in $Results)
 {
-    $CreatedDateTime = $Record | Select-Object -ExpandProperty DownloadTime
+    $CreatedDateTime = $Record | Select-Object -ExpandProperty QuarantineTime
 
     $Line = [PSCustomObject]@{
-    "Download Time"     = (Get-Date $CreatedDateTime).ToString("yyyy-MM-dd HH:mm:ss")
-    "Event Identifier"  = $Record."Event Identifier"
+    "Quarantine Time"   = (Get-Date $CreatedDateTime).ToString("yyyy-MM-dd HH:mm:ss")
+    "File Identifier"   = $Record."Event Identifier"
     "Agent Name"        = $Record."Agent Name"
     "Bundle Identifier" = $Record."Bundle Identifier"
+    "Quarantine Type"   = $Record."Type Number"
     "Data URL"          = $Record."Data URL"
     "Origin URL"        = $Record."Origin URL"
-    "Type Number"       = $Record."Type Number"
     "Sender Name"       = $Record."Sender Name"
     "Sender Address"    = $Record."Sender Address"
     }
@@ -528,15 +546,15 @@ ForEach($Record in $Results)
     $Output.Add($Line)
 }
 
-$Output | Export-Csv -Path "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv" -NoTypeInformation -Encoding UTF8
+$Output | Export-Csv -Path "$OUTPUT_FOLDER\CSV\QuarantineEvents.csv" -NoTypeInformation -Encoding UTF8
 
 # XLSX
-if (Test-Path "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv")
+if (Test-Path "$OUTPUT_FOLDER\CSV\QuarantineEvents.csv")
 {
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv" -MaxLines 2)
+    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\QuarantineEvents.csv" -MaxLines 2)
     {
-        $IMPORT = Import-Csv "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_.DateTime -as [datetime] } -Descending
-        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\XLSX\LSQuarantineEvents.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "LSQuarantineEvents" -CellStyleSB {
+        $IMPORT = Import-Csv "$OUTPUT_FOLDER\CSV\QuarantineEvents.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_."Quarantine Time" -as [datetime] } -Descending
+        $IMPORT | Export-Excel -Path "$OUTPUT_FOLDER\XLSX\QuarantineEvents.xlsx" -NoNumberConversion * -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Quarantine Events" -CellStyleSB {
         param($WorkSheet)
         # BackgroundColor and FontColor for specific cells of TopRow
         Set-Format -Address $WorkSheet.Cells["A1:I1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
@@ -547,11 +565,33 @@ if (Test-Path "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv")
 }
 
 # File Size (XLSX)
-if (Test-Path "$OUTPUT_FOLDER\XLSX\LSQuarantineEvents.xlsx")
+if (Test-Path "$OUTPUT_FOLDER\XLSX\QuarantineEvents.xlsx")
 {
-    $Size = Get-FileSize((Get-Item "$OUTPUT_FOLDER\XLSX\LSQuarantineEvents.xlsx").Length)
+    $Size = Get-FileSize((Get-Item "$OUTPUT_FOLDER\XLSX\QuarantineEvents.xlsx").Length)
     Write-Output "[Info]  File Size (XLSX): $Size"
 }
+
+# Quarantine Time
+# The date and time the item was quarantined. When setting quarantine properties, this property is set automatically to the current date and time if this key is not present in the caller's dictionary.
+
+# Agent Name
+# The name of the quarantining agent (application or program). When setting quarantine properties, this value is set automatically to the current process name if this key is not present in the caller's dictionary.
+
+# Bundle Identifier
+# The bundle identifier of the quarantining agent, if available. When setting quarantine properties, this value is set automatically if the key is not present in the caller's dictionary. The automatic value is the main bundle identifier of the current process.
+
+# Quarantine Type
+# A symbolic string identifying the why the item is quarantined, if available. The value is one of the following: kLSQuarantineTypeWebDownload, kLSQuarantineTypeOtherDownload, kLSQuarantineTypeEmailAttachment, kLSQuarantineTypeInstantMessageAttachment, kLSQuarantineTypeCalendarEventAttachment, kLSQuarantineTypeOtherAttachment
+
+# Data URL
+# The URL from which the data for the quarantined item data was actaully streamed or downloaded, if available.
+
+# Origin URL
+# The URL of the resource originally hosting the quarantined item, from the user's point of view. 
+# For web downloads, this property is the URL of the web page on which the user initiated the download.
+# For attachments, this property is the URL of the resource to which the quarantined item was attached (e.g. the email message, calendar event, etc.). 
+# The origin URL may be a file URL for local resources, or a custom URL to which the quarantining application will respond when asked to open it. 
+# The quarantining application should respond by displaying the resource to the user. Note: The origin URL should not be set to the data URL, or the quarantining application may start downloading the file again if the user choses to view the origin URL while resolving a quarantine warning.
 
 #endregion Analysis
 
@@ -563,16 +603,16 @@ if (Test-Path "$OUTPUT_FOLDER\XLSX\LSQuarantineEvents.xlsx")
 # Stats
 New-Item "$OUTPUT_FOLDER\Stats" -ItemType Directory -Force | Out-Null
 
-if (Test-Path "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv")
+if (Test-Path "$OUTPUT_FOLDER\CSV\QuarantineEvents.csv")
 {
-    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv" -MaxLines 2)
+    if(Test-Csv -Path "$OUTPUT_FOLDER\CSV\QuarantineEvents.csv" -MaxLines 2)
     {
-        $QuarantineEvents = Import-Csv "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_.DateTime -as [datetime] }
+        $QuarantineEvents = Import-Csv "$OUTPUT_FOLDER\CSV\QuarantineEvents.csv" -Delimiter "," -Encoding UTF8 | Sort-Object { $_."Quarantine Time" -as [datetime] }
         
         # Time Frame
-        $DateTime = $QuarantineEvents | Select-Object "Download Time"
-        $StartDateTime = $DateTime | Select-Object -First 1 | Select-Object -ExpandProperty "Download Time"
-        $EndDateTime = $DateTime | Select-Object -Last 1 | Select-Object -ExpandProperty "Download Time"
+        $DateTime = $QuarantineEvents | Select-Object "Quarantine Time"
+        $StartDateTime = $DateTime | Select-Object -First 1 | Select-Object -ExpandProperty "Quarantine Time"
+        $EndDateTime = $DateTime | Select-Object -Last 1 | Select-Object -ExpandProperty "Quarantine Time"
         Write-Output "[Info]  Log data from $StartDateTime UTC until $EndDateTime UTC"
 
         # Agent Name (Stats)
@@ -589,26 +629,40 @@ if (Test-Path "$OUTPUT_FOLDER\CSV\LSQuarantineEvents.csv")
             }
         }
 
+        # Agent Name / Quarantine Type (Stats)
+        $Total = ($QuarantineEvents | Where-Object {$_."Agent Name" -ne ""} | Measure-Object).Count
+        if ($Total -ge "1")
+        {
+            $Stats = $QuarantineEvents | Group-Object "Agent Name","Quarantine Type" | Select-Object @{Name='Agent Name'; Expression={ $_.Values[0] }},@{Name='Quarantine Type'; Expression={ $_.Values[1] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Agent-Name_Type.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Agent Name - Type" -CellStyleSB {
+            param($WorkSheet)
+            # BackgroundColor and FontColor for specific cells of TopRow
+            Set-Format -Address $WorkSheet.Cells["A1:D1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
+            # HorizontalAlignment "Center" of columns A-D
+            $WorkSheet.Cells["A:D"].Style.HorizontalAlignment="Center"
+            }
+        }
+
         # Bundle Identifier (Stats)
         $Total = ($QuarantineEvents | Where-Object {$_."Bundle Identifier" -ne ""} | Measure-Object).Count
         if ($Total -ge "1")
         {
-            $Stats = $QuarantineEvents | Group-Object "Bundle Identifier" | Select-Object @{Name='Bundle Identifier'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+            $Stats = $QuarantineEvents | Select-Object @{Name='Bundle Identifier'; Expression={if($_."Bundle Identifier"){$_."Bundle Identifier"}else{'N/A'}}} | Group-Object "Bundle Identifier" | Select-Object @{Name='Bundle Identifier'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
             $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Bundle-Identifier.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Bundle Identifier" -CellStyleSB {
             param($WorkSheet)
             # BackgroundColor and FontColor for specific cells of TopRow
             Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
-            # HorizontalAlignment "Center" of columns B-C
-            $WorkSheet.Cells["B:C"].Style.HorizontalAlignment="Center"
+            # HorizontalAlignment "Center" of columns A-C
+            $WorkSheet.Cells["A:C"].Style.HorizontalAlignment="Center"
             }
         }
 
-        # Type Number (Stats)
-        $Total = ($QuarantineEvents | Where-Object {$_."Type Number" -ne ""} | Measure-Object).Count
+        # Quarantine Type (Stats)
+        $Total = ($QuarantineEvents | Where-Object {$_."Quarantine Type" -ne ""} | Measure-Object).Count
         if ($Total -ge "1")
         {
-            $Stats = $QuarantineEvents | Group-Object "Type Number" | Select-Object @{Name='Type Number'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
-            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Type-Number.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Type Number" -CellStyleSB {
+            $Stats = $QuarantineEvents | Group-Object "Quarantine Type" | Select-Object @{Name='Quarantine Type'; Expression={ $_.Values[0] }},Count,@{Name='PercentUse'; Expression={"{0:p2}" -f ($_.Count / $Total)}} | Sort-Object Count -Descending
+            $Stats | Export-Excel -Path "$OUTPUT_FOLDER\Stats\Quarantine-Type.xlsx" -FreezeTopRow -BoldTopRow -AutoSize -AutoFilter -WorkSheetname "Quarantine Type" -CellStyleSB {
             param($WorkSheet)
             # BackgroundColor and FontColor for specific cells of TopRow
             Set-Format -Address $WorkSheet.Cells["A1:C1"] -BackgroundColor $BackgroundColor -FontColor $FontColor
@@ -660,11 +714,22 @@ $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
 # xattr -p com.apple.quarantine <file>
 # Flag;Timestamp;Origin;UUID
 
+# /usr/bin/xattr
+
+# Quarantine Flags aka Gatekeeper Flags
+# 0081 - States that the application/file is executing for the first time. This attribute is responsible for the warning that appears when you first try to open an application, saying that the application is downloaded from the Internet.
+# 0082 - ???
+# 0083 - ???
+# 0183 - Indicates that the application was quarantined
+# 01c2 - ???
+# 01c3 - Indicates that the application was quarantined and user approved
+# 0281 - ???
+
 # SIG # Begin signature block
 # MIIrywYJKoZIhvcNAQcCoIIrvDCCK7gCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUeRrBgj2mXBUSliv2TMw2GU9m
-# mDqggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUM4kG8nkxIMB7Z9CcJpc8jfXS
+# 7AmggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -866,33 +931,33 @@ $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
 # Z28gUHVibGljIENvZGUgU2lnbmluZyBDQSBSMzYCEQCMQZ6TvyvOrIgGKDt2Gb08
 # MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MCMGCSqGSIb3DQEJBDEWBBT16oAF4jzo6TBnLREsowNd2Jb6HDANBgkqhkiG9w0B
-# AQEFAASCAgCfz+uC1it5XWR1H0OB6OzPRJ5g6Src0U2S3jgI9TtxPYplXvwV81B0
-# xrsqf2zM0v7oafakHTOXakBkz2u8h14XAIcp0hc2SsATeFKBwk8NavlQGQbpbRJR
-# JT/XmJVRKyx+WQdhV0hZz1vSsqKS5lBOejn/aXJzkiStzized9z1CHXFL1kcQ0R8
-# VRQ4IK7MhlJ9JMARIjN9avSl7lHcAmYS34uqxGHxMciGCgYrLFLGkHcc+WgvAYPC
-# F8GK4O2qgxFVHQdkbKGukbIOUC4uAPBHci1L8r/TCWtzsJP181TA4Xo/caK15Qv+
-# nS6K/Ll4R3yxSUx6xIVahEFM2Wc47OqahkvVtaQ1sPoY5pukatzb/EBTiZrRJQOc
-# wiqxIHyCdydcKPptX8ZAna4x7mQebFtMqD5tqeq/BL2LMkr4dbq902C7cqREn7fN
-# XHGnABb6MPG/lNtH5WYIT8wgeMgF2uEqutayGRe7Oo3xLclzBje2wOfKK1fa6mMy
-# TdXL1nvFbQ+PeYQS9J6qhqlCmgvGSlCn1x5HyApfmJYHtvJ81Jw0+VifS4anyz2g
-# 6nzInL/ZfExhSNQX5pGkavsePLXRKBfMe3vpOsl4hYujQPJQ+2aHLnR6Wh517335
-# eHOC3ssUaXoQv81ihwMzt+jx3bEm7W+gW34De4R1ppLpE/kXm5tlNKGCAyMwggMf
+# MCMGCSqGSIb3DQEJBDEWBBSJfP2sfw9IZ9+T2n0sGftrjwNsXTANBgkqhkiG9w0B
+# AQEFAASCAgDNOqWYgUxIAZIWOTllafNU50ZEfzv565i955FD8DKfUL7S+MXK7IF1
+# CPgmD3gYu/iLs5Ux9145DGxvmyEz9403HT8NYV8Xf6FjDyeIs2yWfdgpw0mlK9bQ
+# ZCcb77vgNO23eXzDHVq1PlrxEelEIyjHjyk0oij1Z3TGI9xpy+omfs7fNmsP7Gle
+# Hf+Hi+GtBHyN8hZ7lyXEo68/GXw8MQiwXM1VUppaIUC/eMC3SDKo45Ur5SJmJysP
+# lIC9lcMp4GcujrhybeMhoclZ0uQbE5LqslTOhLPHLURbtXiKc6SIYSssKYSyuS+r
+# EaQM9hbthR8pFKoNxd3iQwOcWfTnZQWvNA9EpGDb9N1laaSdzi/Ko3CqV+8qSCZZ
+# QL/YcxsnHlKsCthzAvKpJ3Z2VQqWHjFx9ZM5xYas9YH1LL5+Oqp/DaLZczBxGbc1
+# Y5SmiJbIKb6VohLJvreWR9lzzc/7iOmpM1YilENU+DNbCbbropsFUg52tiBJCtCc
+# /xE04b2C+n2j5M3OjOVwr/sTvDrICBiqNWDPZYtKL9dvTsWY1S6yO1Kq0ALK1NK0
+# B5Z0n3MxeHtgvbxMqQxE6l06fosWYKMgQa2t1ZNlbp6GkjzzmOB1YNGDN2+M/qBh
+# /AaHRfhs9JTVmbSE97XFByhbDjHYc2M0rH5v7CjJeEjBH13zeTJ146GCAyMwggMf
 # BgkqhkiG9w0BCQYxggMQMIIDDAIBATBqMFUxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLDAqBgNVBAMTI1NlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgQ0EgUjM2AhEApCk7bh7d16c0CIetek63JDANBglghkgBZQMEAgIF
-# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI1
-# MTEyMDA2MTczN1owPwYJKoZIhvcNAQkEMTIEME8DhVRteYA61nrHV7zGiyEa3Flu
-# 8sUkglyki202k+Xa5ooTBzKq4eYzinaVuKSpfDANBgkqhkiG9w0BAQEFAASCAgBJ
-# y3jZTsDrCJyT2PWSoJzDKtJ1Usvn4PByKSlZoX7PayKSsMoSJfg8zsxcmpX3WrSJ
-# FJsTUUcr90Wr+TAXOpsVQ7N17feH7tAUjdFaBYUD0hYCNuNSaFBQ8eZLJ61Bjvm6
-# nrLo5XrOn3W40eMgURtI3yjrgv6GRgRZwFOnRAqeEXpROrQ2ehz7vOJkAGHS4KLg
-# j13BTaqzGr9S34hgmWYXAOFkbZk7KVodQi7YCCcl9iTZn765RTIIr8mpqvVBI2GV
-# YxhZ4zvyyzwk6AmkJcF8z7T7BK5eHp1AJ2GIU3hzctERv0qepIMljwtbsFwt+YfK
-# C7oqp4x/AWXKUeM/FSUtyTSDWI47GKN1KocZXTjl30Mi6qL/xAfN942SpzJeCHO4
-# +pekcjiGIJxLZUApLY/AZfr7SlmGnOfb2OE97OJ/ttprYbkTViDmIcDQTnBzJZOa
-# lpXIiU057StFOL5PGJU1BauBFLaq7IbRDYyU9NUgcJ34ilymejDJcO6EEBBOGSLi
-# uZktKvXAG+RslY+ifFLtW72PUjbVznc5ASbcy6jz2V9Yv2wrp9QHUDmSppL9Ab1q
-# P4UoYEG2hWRvCBVeKPCIV3WYjG8t5W25Rga8AeTktoEiVL7ugEoZQVTFMccWcNzj
-# Y/vA43aQNYPu7InlA8W6dYmUx9vauf8l9BAZaw4O2g==
+# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI2
+# MDMxNjA2NDUwN1owPwYJKoZIhvcNAQkEMTIEMJrv2uyWI59NNO+klpT+KjDj1Cv2
+# Dtdb+jN3L9sJGtfmZJH/dFlGJeXibZbGzcG5DTANBgkqhkiG9w0BAQEFAASCAgDL
+# JoQSUrt5GXMED/bdJHpKnp0ba/vgM4pyJrfPFtw2+QAQGSuqUMtX8uVCzBJHEcsf
+# jlHFDtKURu1rySatYbzKjFGayGzHYkAJI99kw9B3e5FqWPev0eT5L6fswBL2wdfP
+# tN0aLjcQitsQeOuTF1YTAMuV+SPY820mku6ZJDDFZnseUQvmovHIKBZXzfJ6mR2l
+# SQY9u347VBfIF7FTmwBcCftngy4hEeF2HbFUUFHET2VFdrs3xdbK4hs91OFoIR2X
+# tB/XpuVBPgZy/OzjTJ535eesRAPJtJxWx7avdRFM4qIUuqrKHZ8JV8nHSPh8LQ3L
+# QfOcHqs8NEPzCLb2j9g5lT9SizM/AqSPpyBHv++E2mccOemIXrilHgLceW0JiRWD
+# 2I+TnTUtSM4xB+43zBHraNJFs9paaBB4aeCyW9vgi/WEQ9WGWE8inKDl+C0kjwAT
+# ESBmNSaZeH+HQyp0sEpMUHsGMadYqbTjWkm2FwfMr9MV29hCeGufc6yCmLlIby5S
+# tRj895fvxxvGldlv2heUxNN16/yY9GRvA+xNl9tO++/hvh63qSyya2D/WSdvCcAW
+# P/OQmNHeGugyWahtSwR4BmGzdcmCv17X+6yhQRatE0qWIoHIxYCmdJdi/cS+uN/t
+# BczIS0+ORJ9eAhLlqCQbH8+U92YZ467NQYQhSjyppA==
 # SIG # End signature block

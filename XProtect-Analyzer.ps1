@@ -1,10 +1,10 @@
-﻿# XProtect-Analyzer v0.1
+﻿# XProtect-Analyzer v0.2
 #
 # @author:    Martin Willing
-# @copyright: Copyright (c) 2025 Martin Willing. All rights reserved. Licensed under the MIT license.
+# @copyright: Copyright (c) 2026 Martin Willing. All rights reserved. Licensed under the MIT license.
 # @contact:   Any feedback or suggestions are always welcome and much appreciated - mwilling@lethal-forensics.com
 # @url:       https://lethal-forensics.com/
-# @date:      2025-11-20
+# @date:      2026-03-16
 #
 #
 # ██╗     ███████╗████████╗██╗  ██╗ █████╗ ██╗      ███████╗ ██████╗ ██████╗ ███████╗███╗   ██╗███████╗██╗ ██████╗███████╗
@@ -29,9 +29,13 @@
 # Release Date: 2025-11-10
 # Initial Release
 #
+# Version 0.2
+# Release Date: 2025-11-27
+# Added: VirusTotal Lookup
+#
 #
 # Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 5.1 (5.1.19041.6456)
-# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.4
+# Tested on Windows 10 Pro (x64) Version 22H2 (10.0.19045.6456) and PowerShell 7.5.5
 #
 #
 #############################################################################################################################################################################################
@@ -39,7 +43,7 @@
 
 <#
 .SYNOPSIS
-  XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR
+  XProtect-Analyzer v0.2 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR
 
 .DESCRIPTION
   XProtect-Analyzer.ps1 is a PowerShell script utilized to simplify the analysis of the macOS XPdb.db.
@@ -52,6 +56,9 @@
 .PARAMETER Path
   Specifies the path to the input file (XPdb).
 
+.PARAMETER skipVT
+  Do not query VirusTotal with item hashes.
+
 .EXAMPLE
   PS> .\XProtect-Analyzer.ps1
 
@@ -60,6 +67,9 @@
 
 .EXAMPLE
   PS> .\XProtect-Analyzer.ps1 -Path "H:\macos-collector\Aftermath_Collection\XPdb" -OutputDir "H:\MacOS-Analyzer-Suite"
+
+.EXAMPLE
+  PS> .\XProtect-Analyzer.ps1 -Path "H:\macos-collector\Aftermath_Collection\XPdb" -OutputDir "H:\MacOS-Analyzer-Suite" --skipVT
 
 .NOTES
   Author - Martin Willing
@@ -76,7 +86,8 @@
 [CmdletBinding()]
 Param(
     [String]$Path,
-    [String]$OutputDir
+    [String]$OutputDir,
+    [Switch]$skipVT
 )
 
 #endregion CmdletBinding
@@ -173,7 +184,7 @@ else
 
 # Windows Title
 $DefaultWindowsTitle = $Host.UI.RawUI.WindowTitle
-$Host.UI.RawUI.WindowTitle = "XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
+$Host.UI.RawUI.WindowTitle = "XProtect-Analyzer v0.2 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
 
 # Check if the PowerShell script is being run with admin rights
 if (!([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
@@ -310,28 +321,31 @@ End
 }
 
 # Select Log File (XPdb)
-Function Get-LogFile($InitialDirectory)
-{ 
-    [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
-    $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
-    $OpenFileDialog.InitialDirectory = $InitialDirectory
-    $OpenFileDialog.Filter = "XProtect Behavioral Service Database|XPdb|All Files (*.*)|*.*"
-    $OpenFileDialog.ShowDialog()
-    $OpenFileDialog.Filename
-    $OpenFileDialog.ShowHelp = $true
-    $OpenFileDialog.Multiselect = $false
-}
-
-$Result = Get-LogFile
-
-if($Result -eq "OK")
+if(!($Path))
 {
-    $script:DatabaseFile = $Result[1]
-}
-else
-{
-    $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
-    Exit
+    Function Get-LogFile($InitialDirectory)
+    { 
+        [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms") | Out-Null
+        $OpenFileDialog = New-Object System.Windows.Forms.OpenFileDialog
+        $OpenFileDialog.InitialDirectory = $InitialDirectory
+        $OpenFileDialog.Filter = "XProtect Behavioral Service Database|XPdb|All Files (*.*)|*.*"
+        $OpenFileDialog.ShowDialog()
+        $OpenFileDialog.Filename
+        $OpenFileDialog.ShowHelp = $true
+        $OpenFileDialog.Multiselect = $false
+    }
+
+    $Result = Get-LogFile
+
+    if($Result -eq "OK")
+    {
+        $script:DatabaseFile = $Result[1]
+    }
+    else
+    {
+        $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
+        Exit
+    }
 }
 
 # Create a record of your PowerShell session to a text file
@@ -355,8 +369,8 @@ Write-Output "$Logo"
 Write-Output ""
 
 # Header
-Write-Output "XProtect-Analyzer v0.1 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
-Write-Output "(c) 2025 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
+Write-Output "XProtect-Analyzer v0.2 - Automated Forensic Analysis of macOS XProtect Behavioral Service database for DFIR"
+Write-Output "(c) 2026 Martin Willing at Lethal-Forensics (https://lethal-forensics.com/)"
 Write-Output ""
 
 # Analysis date (ISO 8601)
@@ -578,10 +592,12 @@ if (Test-Path "$OUTPUT_FOLDER\CSV\XProtect-BehaviorService.csv")
         $Count = ($XBS | Select-Object "Team Identifier" -Unique | Measure-Object).Count
         Write-Output "[Info]  $Count Team Identifier found ($Total)"
 
-        # SHA256 --> VirusTotal-CLI.ps1
+        # SHA256
         New-Item "$OUTPUT_FOLDER\TXT" -ItemType Directory -Force | Out-Null
         $SHA256 = ($XBS | Where-Object { $_.SHA256 -match "^[A-Fa-f0-9]{64}$" } | Select-Object SHA256 -Unique | Sort-Object SHA256).SHA256
         $SHA256 | Out-File "$OUTPUT_FOLDER\TXT\SHA256.txt" -Encoding UTF8
+        $Count = ($SHA256 | Measure-Object).Count
+        Write-Output "[Info]  $Count SHA256 Hash Value(s) found"
 
         # Bastion Rule (Stats)
         $Total = ($XBS | Measure-Object).Count
@@ -689,11 +705,56 @@ $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
 #############################################################################################################################################################################################
 #############################################################################################################################################################################################
 
+#region VirusTotal
+
+# VirusTotal Lookup
+
+# Check if VirusTotal Lookup is skipped
+if (!($skipVT.IsPresent))
+{
+    $Title   = "VirusTotal-Analyzer"
+    $Prompt  = "Do you want to check the item hashes on VirusTotal?"
+    $Choices = [System.Management.Automation.Host.ChoiceDescription[]] @("&Yes", "&No")
+    $Default = 0
+
+    $Choice = $host.UI.PromptForChoice($Title, $Prompt, $Choices, $Default)
+
+    switch($Choice)
+    {
+        # Yes
+	    0 {
+            # Check if MD5 Hash List exists
+            if (Test-Path "$OUTPUT_FOLDER\TXT\SHA256.txt")
+            {
+                # Check if MD5 Hash List is nor empty
+                if ((Get-Item "$OUTPUT_FOLDER\TXT\SHA256.txt").Length -gt 0kb)
+                {
+                    if (Test-Path "$PSScriptRoot\VirusTotal-Analyzer.ps1")
+                    {
+                        New-Item "$OUTPUT_FOLDER\VirusTotal" -ItemType Directory -Force | Out-Null
+                        & "$PSScriptRoot\VirusTotal-Analyzer.ps1" -Path "$OUTPUT_FOLDER\TXT\SHA256.txt" -OutputDir "$OUTPUT_FOLDER\VirusTotal"
+                    }
+                }
+            }
+	    }
+
+	    # No
+	    1 {
+            Exit
+	    }
+    }
+}
+
+#endregion VirusTotal
+
+#############################################################################################################################################################################################
+#############################################################################################################################################################################################
+
 # SIG # Begin signature block
 # MIIrywYJKoZIhvcNAQcCoIIrvDCCK7gCAQExCzAJBgUrDgMCGgUAMGkGCisGAQQB
 # gjcCAQSgWzBZMDQGCisGAQQBgjcCAR4wJgIDAQAABBAfzDtgWUsITrck0sYpfvNR
-# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUsCoI6ZDUMWXavzfMhQrwgfUO
-# x4SggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
+# AgEAAgEAAgEAAgEAAgEAMCEwCQYFKw4DAhoFAAQUPHPkwUEapihp5nt4DtJPCh1S
+# l4SggiUEMIIFbzCCBFegAwIBAgIQSPyTtGBVlI02p8mKidaUFjANBgkqhkiG9w0B
 # AQwFADB7MQswCQYDVQQGEwJHQjEbMBkGA1UECAwSR3JlYXRlciBNYW5jaGVzdGVy
 # MRAwDgYDVQQHDAdTYWxmb3JkMRowGAYDVQQKDBFDb21vZG8gQ0EgTGltaXRlZDEh
 # MB8GA1UEAwwYQUFBIENlcnRpZmljYXRlIFNlcnZpY2VzMB4XDTIxMDUyNTAwMDAw
@@ -895,33 +956,33 @@ $Host.UI.RawUI.WindowTitle = "$DefaultWindowsTitle"
 # Z28gUHVibGljIENvZGUgU2lnbmluZyBDQSBSMzYCEQCMQZ6TvyvOrIgGKDt2Gb08
 # MAkGBSsOAwIaBQCgeDAYBgorBgEEAYI3AgEMMQowCKACgAChAoAAMBkGCSqGSIb3
 # DQEJAzEMBgorBgEEAYI3AgEEMBwGCisGAQQBgjcCAQsxDjAMBgorBgEEAYI3AgEV
-# MCMGCSqGSIb3DQEJBDEWBBRti+ZTqQXrK+HW7YZ1hGuUK1wNBDANBgkqhkiG9w0B
-# AQEFAASCAgC94i48AEPML2hZZ3k5Ybj/atXTqSn1Ww6BbZcVBQm3S1k6Gxhb9nv5
-# O/aC2W0/385bJXnQAYj0Y8/VaSErVk8q8RbntJwAe4kuaugQ42YGzWQBCpmJ+WVF
-# As2YyBmNy0K2vWVkU+UGfyc69jtKCMJT11EnGztqI50yeu/QUwoscxe+vfxiY8tj
-# AHlCXFPLX3NFWSsJEN9Y+tv09RFgmWuskGziGLvRMmECmSpycaNVMLYub0QBnpng
-# Uqo1LX+J47htT66cf6Des7z1c4EWFHFT4k/2zUDelI/Vc1BH8ek4aV7wujdmdc+j
-# P9zzOpk4+tgrsp7M94T7A3OLaEHx6v7nIkgC21qxYoargD0o0yF1X49aVS/6kraX
-# 40J7zFGLyrMOar6yH9eAoZemhKw6AtPuwL392fJybIrE9iw5zMUEepRop935Dyvb
-# xvZIG+Bca6phG09w21KpAOUmdlOruFvPPqR3yt4W+dKJWXJBDS05gDYXAKyPKLMY
-# Kp4INSyFKcjXImMpvCCTMJxH/4hSCA+aBqpKlRmmU5vJ2rRoF12Cr+77txGzK/Rc
-# unVN0gKv2kxO1Q9t33Me4EJJ1ziLtNyPc6ZPUXzh5W1hGfZuF1ckou4HtopFzyJN
-# lnN3rBAQ/MmUFBSJdhS9NP+0BTKVU/OXxMCGdCpuEeTc4VwzoaI5qqGCAyMwggMf
+# MCMGCSqGSIb3DQEJBDEWBBQf/EOnwf7Ta2gNktCFmPTKNPblVTANBgkqhkiG9w0B
+# AQEFAASCAgBKHkDiXQHr7hd7P8wO/NyfU/9qRG29x1lmh9PMzPlS+zmj/LAlF5Qr
+# oodiRLSn/viTBGJtIkRm+GrUIBY5wF0CaBbItyO5Cm3iCpZfnVG7f0UveHSqSYJ7
+# N41LKeXZzqRj9ZFlVn9aEQvnNmHtYtATh1mj1vi+8I2FmS60ds+Y39bWYqe+R7Zt
+# iRMUDD7QZUNwtgpnVKHV9bWPwT6UDRsRS1AFQCks487bXu5GcuatDb5AIrDsutGI
+# ZTlxIDVrkeo+ItqcA1SMunwQOJJNBEiiIzEiCKxRvRPbvVtb8VagCXaHZUV2zg4D
+# C01pBI+MHr//AUHXcWD/a86/Zrk2NfeOoEPEQLMEtHmcAPkeXtB67gZeQb7WnMG2
+# 9bVY4L8exPHNS2pawqoRKIQTQKPu3NOdSVPC1Bt/fDuWCqrtVqIXX182TtUAQAR1
+# MhtqCOPpspyocoJwChI7pEWSmoYsSIuPYFfmg7ayGsK1PjtqUiUjE5zW2eh7eULR
+# VId2Si3FTA91ZVANpsbDox0RJJNZMZ8RjFTH5bfk8vfBg83ERJWiq7cqgnPYJT2p
+# ibb3ZqteQYVHWD1pCKILHg/hWQhiGxGACHRp9u6JCQXWvn2CDNy/DZCm67uSz1An
+# S0ykBjkTGe8UxWCLifPzlG87NL9Fj1ld5r+W7Jbyphxh94+J4bshvKGCAyMwggMf
 # BgkqhkiG9w0BCQYxggMQMIIDDAIBATBqMFUxCzAJBgNVBAYTAkdCMRgwFgYDVQQK
 # Ew9TZWN0aWdvIExpbWl0ZWQxLDAqBgNVBAMTI1NlY3RpZ28gUHVibGljIFRpbWUg
 # U3RhbXBpbmcgQ0EgUjM2AhEApCk7bh7d16c0CIetek63JDANBglghkgBZQMEAgIF
-# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI1
-# MTEyMDA2MTc1MFowPwYJKoZIhvcNAQkEMTIEMFKUnXuxVW7METSIdzYaAY2Zs4qx
-# g9Y65+oP6yQwyB0qxRlLXVoVj57FFkI9aI2FNDANBgkqhkiG9w0BAQEFAASCAgBn
-# Sc7uc69fq6wueeKKYX8q604ZqKtLi57Vq/0Na6hYetiTBEoIsJDcfc+Njnl19+V+
-# ioNbBMkZXx2H2QDTC4ScEgV50x9+zd+HiNM/VG8iegLEMUrTXGTRymF134T2YPKy
-# 2QQopzs1ptkMILj+O6pT9q7hV8LPftPrHA/SvvROme6/WlqUDF6ySsIh8quw6WUA
-# 2nubjmJigHLTYhbo4YzzCJPY/sfpfCDQijfwomvXSYsRY7TjQsdHpMHgQ7pzKONd
-# /JeYcG9OnK7DhuUnbhTWt9Z4lGYS7hW6FqYORQ2+Ntd+yM+AZJkWa4r7U2fdtqyg
-# AxRHTKdubWkiZ4X/173Ux1ZNM4scZRBxM8KSscefxNxmBIAwCAGQUTDlMvf/rkno
-# 6qBplJOJ9KAptTfeyaeuRUY0PlycZg06LfptaIg8YHTRGPSGy8VwmZ2ycsk3AS2/
-# 4v/fc2e1MG6u/lvwU1pQGNQ06BpQdkPE1hjshzMkrL7vxldRRSRc9AbB4NR8VE2q
-# VFfrduCXCsqZA8XK2Qix9hZ1Iy6kRihG7qGrHQ0/iNyKF4IXrA+vaQTo9NZAJsLa
-# wYG+DhQd2rLCD/umJe3oy67ywESD9QcHRmR63dnBb4Sc/QvrvNvrUAiiohdWz2sq
-# gbNk91/OGD+9s98K4FijmSwPoWZTz+Eg+C3xfbUUXw==
+# AKB5MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTI2
+# MDMxNjA2NDUyNFowPwYJKoZIhvcNAQkEMTIEMJS6VDIoaL80+PtwRVNWHiKMLNvo
+# sJO359s/7j0Bpn8sRk9VXByb13cb0GHyadPv5DANBgkqhkiG9w0BAQEFAASCAgA8
+# O1KVI4SYdGj7aLGIOLFQ63PMvpVJTYp4Cm5OeRNusRhm5SPagcgwbhe8OpwPo04Z
+# /HmcsFJJc4qRWg6ZsHfouW3iDNboVpVGl2046ePG3W61PrWqPKFEI2lvu8GryPjx
+# lUc16rS8E3JtfDQynvk8gttWVB7zcSSPI/XRiOnBPNROF4HfxdzQ48ipuWePCCeT
+# 7DmQXVq5FoVUkgtj68KUUHN8DH+7VNCYrSOfOhCoFzYV7EqoFErF4GSdjHtPYNVj
+# FbIDp128+9oDBcn+TGDy9VNkd7qMaS2cVe2U8XPW/jd8iPEya8K8t4Cct48viC+n
+# rU/wfYT4JN8XMBiELGFaZ/1HlrINqzN4a53qz6L8SYfw8z9TYMHt3jCWGBoli98I
+# 59+p/uCMKjV1Ed9UoyzOXAtHEvV1uQUpWFswETi8yW8DgW0iaHOw2GHgV5lr5g25
+# 2h423krkdN9zsUg6Kv0m8mRc4OsKVIQtdLTEHNHU6NMH/kYGfAiy70h0czat9JMP
+# zLEebC1JXXbIPAEXu2OgfEzMlRTZ6hj46RiKkoWyhPSpIHZnDcDLoEKTz0txQ1JM
+# v6PWLHeJcni2GwCEouJNd9dmI46o003pJedfJjmGX1F9pFmBb3rFcXCNuB9iGSeC
+# JktEpviS4jXn7UDyftNOGWtpBRiJ6GNPzSwF44Ss6Q==
 # SIG # End signature block

@@ -2,6 +2,14 @@
 
 All changes to the MacOS-Analyzer-Suite will be documented in this file.  
 
+## [1.2.0] - 2026-03-16
+### Added
+- KnockKnock-Analyzer
+- VirusTotal-Analyzer
+
+### Fixed
+- Minor fixes and improvements
+
 ## [1.1.0] - 2025-11-20
 ### Added
 - BTM-Analyzer
@@ -9,7 +17,7 @@ All changes to the MacOS-Analyzer-Suite will be documented in this file.
 - Storyline-Analyzer (Aftermath)
 - Timeline-Analyzer (Aftermath)
 
-## Fixed
+### Fixed
 - Minor fixes and improvements
 
 ## [1.0.0] - 2025-11-10
@@ -19,5 +27,5 @@ All changes to the MacOS-Analyzer-Suite will be documented in this file.
 - TCC-Analyzer
 - XProtect-Analyzer
 
-## Changed
+### Changed
 - CHANGELOG.md
